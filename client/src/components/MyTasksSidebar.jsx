@@ -54,7 +54,7 @@ function MyTasksSidebar() {
         <div className="flex items-center gap-2">
           <CheckSquareIcon className="w-4 h-4 text-gray-500 dark:text-zinc-400" />
           <h3 className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-            My Tasks
+            Ireo Asako
           </h3>
           <span className="bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 text-xs px-2 py-0.5 rounded">
             {myTasks.length}
@@ -72,7 +72,7 @@ function MyTasksSidebar() {
           <div className="space-y-1">
             {myTasks.length === 0 ? (
               <div className="px-3 py-2 text-xs text-gray-500 dark:text-zinc-500 text-center">
-                Tsy misy asa voatondro
+                Tsy Misy Asa Voatondro
               </div>
             ) : (
               myTasks.map((task, index) => (

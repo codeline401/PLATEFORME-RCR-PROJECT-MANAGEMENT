@@ -45,7 +45,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         <h2 className="text-xl font-medium mb-1">Hamorona Tetikasa</h2>
         {currentWorkspace && (
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-            In workspace:{" "}
+            Ato amin'ny Tranon'Asa:{" "}
             <span className="text-blue-600 dark:text-blue-400">
               {currentWorkspace.name}
             </span>
@@ -121,7 +121,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm mb-1">Daty Fanombohana</label>
+              <label className="block text-sm mb-1">Daty Fanombohany</label>
               <input
                 type="date"
                 value={formData.start_date}
@@ -190,7 +190,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 }
               }}
             >
-              <option value="">Ampiditra Mpikambana ao anaty Ekipa</option>
+              <option value="">Ampiditra Mpikambana Ao Anaty Ekipa</option>
               {currentWorkspace?.members
                 ?.filter((email) => !formData.team_members.includes(email))
                 .map((member) => (

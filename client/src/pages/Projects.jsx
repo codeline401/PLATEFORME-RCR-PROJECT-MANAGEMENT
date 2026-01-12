@@ -55,7 +55,7 @@ export default function Projects() {
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
             {" "}
-            Projet{" "}
+            Tetikasa{" "}
           </h1>
           <p className="text-gray-500 dark:text-zinc-400 text-sm">
             {" "}
@@ -66,7 +66,7 @@ export default function Projects() {
           onClick={() => setIsDialogOpen(true)}
           className="flex items-center px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:opacity-90 transition"
         >
-          <Plus className="size-4 mr-2" /> Projet Vaovao
+          <Plus className="size-4 mr-2" /> Tetikasa Vaovao
         </button>
         <CreateProjectDialog
           isDialogOpen={isDialogOpen}
@@ -117,17 +117,17 @@ export default function Projects() {
               <FolderOpen className="w-12 h-12 text-gray-400 dark:text-zinc-500" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-              Tsy misy projet hita
+              Tsy misy Tetikasa Hita
             </h3>
             <p className="text-gray-500 dark:text-zinc-400 mb-6 text-sm">
-              Forony projet vaovao na ovao ny fepetra fikarohana.
+              Forony Tetikasa vaovao na ovao ny fepetra fikarohana.
             </p>
             <button
               onClick={() => setIsDialogOpen(true)}
               className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mx-auto text-sm"
             >
               <Plus className="size-4" />
-              Hamorona projet
+              Hamorona Tetikasa
             </button>
           </div>
         ) : (

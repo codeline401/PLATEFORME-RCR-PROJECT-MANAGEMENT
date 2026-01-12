@@ -104,7 +104,7 @@ export default function ProjectSettings({ project }) {
           {/* Timeline */}
           <div className="space-y-4 grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className={labelClasses}>Daty Hanombohana</label>
+              <label className={labelClasses}>Daty Hanombohany</label>
               <input
                 type="date"
                 value={format(formData.start_date, "yyyy-MM-dd")}

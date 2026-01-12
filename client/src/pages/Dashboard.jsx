@@ -29,7 +29,7 @@ const Dashboard = () => {
           onClick={() => setIsDialogOpen(true)}
           className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white space-x-2 hover:opacity-90 transition"
         >
-          <Plus size={16} /> New Project
+          <Plus size={16} /> Tetikasa Vaovao
         </button>
 
         <CreateProjectDialog

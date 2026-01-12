@@ -50,7 +50,7 @@ function WorkspaceDropdown() {
               {currentWorkspace?.name || "Select Workspace"}
             </p>
             <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-              {workspaces.length} workspace{workspaces.length !== 1 ? "s" : ""}
+              {workspaces.length} Toeran'Asa{workspaces.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>

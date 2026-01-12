@@ -29,7 +29,7 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
           </h2>
           {currentWorkspace && (
             <p className="text-sm text-zinc-700 dark:text-zinc-400">
-              Inviting to workspace:{" "}
+              Hanasa Ao Anaty Tranon'Asa:{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 {currentWorkspace.name}
               </span>

@@ -35,7 +35,7 @@ const Team = () => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
-            Team
+            Ekipa
           </h1>
           <p className="text-gray-500 dark:text-zinc-400 text-sm">
             Hikirakira ireo mpikambana ao amin'ny ekipanao ary tantano ny
@@ -78,7 +78,7 @@ const Team = () => {
           <div className="flex items-center justify-between gap-8 md:gap-22">
             <div>
               <p className="text-sm text-gray-500 dark:text-zinc-400">
-                Active Projects
+                Ireo Tetikasa Mandeha Amin'izao
               </p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
                 {
@@ -99,7 +99,7 @@ const Team = () => {
           <div className="flex items-center justify-between gap-8 md:gap-22">
             <div>
               <p className="text-sm text-gray-500 dark:text-zinc-400">
-                Total Tasks
+                Totalin'ny Asa
               </p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
                 {tasks.length}

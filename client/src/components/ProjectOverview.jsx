@@ -55,7 +55,7 @@ const ProjectOverview = () => {
                 <FolderOpen size={32} />
               </div>
               <p className="text-zinc-600 dark:text-zinc-400">
-                Mbola tsy misy Tetikasa
+                Mbola Tsy Misy Tetikasa
               </p>
               <button
                 onClick={() => setIsDialogOpen(true)}
