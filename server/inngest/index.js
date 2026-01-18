@@ -1,5 +1,6 @@
 import { Inngest } from "inngest";
 import prisma from "../configs/prisma.js";
+import { sendEmail } from "../configs/nodemailer.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "RCR PROJECT MANAGEMENT" });
@@ -20,7 +21,7 @@ const syncUserCreation = inngest.createFunction(
         image: data.profile_image_url || null,
       },
     });
-  }
+  },
 );
 
 // Inngest functions to delete user date to a db
@@ -36,7 +37,7 @@ const syncUserDeletion = inngest.createFunction(
         id: data.id,
       },
     });
-  }
+  },
 );
 
 // Inngest function to update user data in the db
@@ -57,7 +58,7 @@ const syncUserUpdation = inngest.createFunction(
         image: data.profile_image_url || null,
       },
     });
-  }
+  },
 );
 
 // Inngest function to save worksapce data to a db
@@ -84,7 +85,7 @@ const syncWorkspaceCreation = inngest.createFunction(
         role: "ADMIN",
       },
     });
-  }
+  },
 );
 
 // Inngest function to update worksapce data to a db
@@ -104,7 +105,7 @@ const syncWorkspaceUpdation = inngest.createFunction(
         image_url: data.image_url || null,
       },
     });
-  }
+  },
 );
 
 // Inngest function to delete worksapce data from a db
@@ -119,7 +120,7 @@ const syncWorkspaceDeletion = inngest.createFunction(
         id: data.id,
       },
     });
-  }
+  },
 );
 
 // Inngest functions to save workspace member data to a db
@@ -136,9 +137,147 @@ const syncWorkSpaceMemberCreation = inngest.createFunction(
         role: String(data.role_name).toUpperCase() || "MPIKAMBANA",
       },
     });
-  }
+  },
 );
 
+// Inngest function to Send Email on Task Creation
+const sendTaskAssignmentEmail = inngest.createFunction(
+  { id: "send-task-assignment-email" },
+  { event: "app/task.assigned" },
+  async ({ event, step }) => {
+    const { taskId, origin } = event.data;
+
+    // Fetch task details
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignee: true, project: true },
+    });
+
+    await sendEmail({
+      to: task.assignee.email,
+      subject: `Asa vaovao ho anao ao amin'ilay Tetikasa: ${task.project.name}`,
+      body: `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
+              <p>
+                Salama Kamarady <strong>${task.assignee.name}</strong> 👋
+              </p>
+              <p>
+                Nahazo <strong>asa vaovao</strong> ianao ao amin'ny tetikasa
+                <strong>"${task.project.name}"</strong>.
+              </p>
+
+              <div style="margin: 16px 0; padding: 12px; background-color: #f9fafb; border-left: 4px solid #2563eb;">
+                <p style="margin: 0;">
+                  <strong>Anarana Asa :</strong><br />
+                  ${task.title}
+                  <strong>Daty :</strong><br/>
+                  ${new Date(task.due_date).toLocaleDateString()}
+                </p>
+
+                <p style="margin: 8px 0 0 0;">
+                  <strong>Famaritana :</strong><br />
+                  ${task.description || "Tsy misy famaritana"}
+                </p>
+              </div>
+                <p>
+                  Azonao jerena ny antsipiriany sy ny fanavaozana rehetra amin'ny alalan'ity rohy ity :
+                </p>
+
+                <p>
+                  <a
+                    href="${origin}/projects/${task.projectId}/tasks/${task.id}"
+                    style="
+                      display: inline-block;
+                      padding: 10px 16px;
+                      background-color: #2563eb;
+                      color: #ffffff;
+                      text-decoration: none;
+                      border-radius: 6px;
+                      font-weight: bold;
+                    "
+                  >
+                    🔎 Hitsidika ilay Tetikasa
+                  </a>
+                </p>
+
+                <p style="margin-top: 24px; color: #374151;">
+                  Mirary soa,<br />
+                  <strong>RCR / T.OLO.N.A</strong>
+                </p>
+              </div>`,
+    });
+
+    if (
+      new Date(task.due_date).toLocaleDateString() !== new Date().toDateString()
+    ) {
+      await step.sleepUntil("wait-for-the-due-date", new Date(task.due_date)); // wait until due date
+
+      await step.run("check-if-task-is-completed", async () => {
+        // check if task is completed
+        const currentTask = await prisma.task.findUnique({
+          where: { id: taskId },
+          include: { assignee: true, project: true },
+        });
+
+        if (!currentTask) return; // task not found
+
+        if (currentTask.status !== "DONE") {
+          await step.run("send-task-reminder-mail", async () => {
+            // send reminder email
+            await sendEmail({
+              // send email
+              to: currentTask.assignee.email,
+              subject: `Fampatsiahivana anao ilay asa ${task.project.name} mbola tsy vita`,
+              body: `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
+                      <p>
+                        Salama Kamarady <strong>${currentTask.assignee.name}</strong> 👋
+                      </p>
+                      <p>
+                        Ity dia fampatsiahivana fotsiny fa mbola misy asa tsy vita ao amin'ny tetikasa
+                        <strong>"${currentTask.project.name}"</strong>.
+                      </p>
+                      <div style="margin: 16px 0; padding: 12px; background-color: #f9fafb; border-left: 4px solid #f59e0b;">
+                        <p style="margin: 0;">
+                          <strong>Anarana Asa :</strong><br />
+                          ${currentTask.title}
+                          <strong>Daty :</strong><br/>
+                          ${new Date(currentTask.due_date).toLocaleDateString()}
+                        </p>
+                        <p style="margin: 8px 0 0 0;">
+                          <strong>Famaritana :</strong><br />
+                          ${currentTask.description || "Tsy misy famaritana"}
+                        </p>
+                      </div>
+                      <p>
+                        Azonao jerena ny antsipiriany sy ny fanavaozana rehetra amin'ny alalan'ity rohy ity :
+                      </p>
+                      <p>
+                        <a
+                          href="${origin}/projects/${currentTask.projectId}/tasks/${currentTask.id}"
+                          style="
+                            display: inline-block;
+                            padding: 10px 16px;
+                            background-color: #2563eb;
+                            color: #ffffff;
+                            text-decoration: none;
+                            border-radius: 6px;
+                            font-weight: bold;
+                          "
+                        >
+                          🔎 Hitsidika ilay Tetikasa
+                        </a>
+                      </p>
+                      <p style="margin-top: 24px; color: #374151;">
+                        Mirary soa,<br />
+                        <strong>RCR / T.OLO.N.A</strong>
+                      </p>
+                    </div>`,
+            });
+          });
+        }
+      });
+    }
+  },
+);
 // Create an empty array where we'll export future Inngest functions
 export const functions = [
   syncUserCreation,
@@ -148,4 +287,5 @@ export const functions = [
   syncWorkspaceUpdation,
   syncWorkspaceDeletion,
   syncWorkSpaceMemberCreation,
+  sendTaskAssignmentEmail,
 ];

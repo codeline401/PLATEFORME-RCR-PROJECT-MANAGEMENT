@@ -7,6 +7,12 @@ import { inngest, functions } from "./inngest/index.js";
 
 import { clerkMiddleware } from "@clerk/express"; // import Clerk middleware
 
+import workspaceRouter from "./routes/workspaceRoute.js";
+import projectRouter from "./routes/projectRoute.js";
+import taskRouter from "./routes/taskRoute.js";
+import commentRouter from "./routes/commentRoute.js";
+import { protect } from "./middlewares/authMiddlewares.js";
+
 const app = express(); // create an express application
 
 app.use(express.json()); // middleware to parse JSON bodies
@@ -17,6 +23,12 @@ app.get("/", (req, res) => res.send("Server is Live")); // basic route to test s
 
 // Set up the "/api/inngest" (recommended) routes with the serve handler
 app.use("/api/inngest", serve({ client: inngest, functions }));
+
+// Routes
+app.use("/api/workspaces", protect, workspaceRouter); // use workspace routes
+app.use("/api/projects", protect, projectRouter); // use project routes
+app.use("/api/tasks", protect, taskRouter); // use task routes
+app.use("/api/comments", protect, commentRouter); // use comment routes
 
 const PORT = process.env.PORT || 5000; // get port from environment or use 5000
 
