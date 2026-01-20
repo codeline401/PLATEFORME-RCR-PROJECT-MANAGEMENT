@@ -1,7 +1,8 @@
-import axios from "axios";
+import axios from "axios"; // Import axios library
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BASEURL,
+  // Create an axios instance
+  baseURL: import.meta.env.VITE_BASEURL, // Set the base URL from environment variables
 });
 
-export default api;
+export default api; // Export the axios instance for use in other parts of the application

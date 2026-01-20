@@ -32,10 +32,14 @@ function MyTasksSidebar() {
   const fetchUserTasks = () => {
     const userId = user?.id || "";
     if (!userId || !currentWorkspace) return;
-    const currentWorkspaceTasks = currentWorkspace.projects.flatMap(
+
+    // FIX: Vérifier que projects et tasks existent
+    const currentWorkspaceTasks = (currentWorkspace.projects || []).flatMap(
       (project) => {
-        return project.tasks.filter((task) => task?.assignee?.id === userId);
-      }
+        return (project.tasks || []).filter(
+          (task) => task?.assignee?.id === userId,
+        );
+      },
     );
 
     setMyTasks(currentWorkspaceTasks);
@@ -84,7 +88,7 @@ function MyTasksSidebar() {
                   <div className="flex items-center gap-2 px-3 py-2 w-full min-w-0">
                     <div
                       className={`w-2 h-2 rounded-full ${getTaskStatusColor(
-                        task.status
+                        task.status,
                       )} flex-shrink-0`}
                     />
                     <div className="flex-1 min-w-0">

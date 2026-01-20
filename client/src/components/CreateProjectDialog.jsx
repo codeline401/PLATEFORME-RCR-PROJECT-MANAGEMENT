@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { XIcon } from "lucide-react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { useAuth } from "@clerk/clerk-react";
+// FIX: Importer addProject comme action (destructuré)
+import { addProject } from "../features/workspaceSlice.js";
+import api from "../configs/api.js";
 
 const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
+
   const { currentWorkspace } = useSelector((state) => state.workspace);
 
   const [formData, setFormData] = useState({
@@ -21,6 +29,47 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      if (!formData.team_lead) {
+        return toast.error("Azafady, mifidiana mpitarika ny tetikasa.");
+      }
+      setIsSubmitting(true);
+
+      // FIX: API call avec le bon chemin (/api/projects)
+      const { data } = await api.post(
+        "/api/projects",
+        { workspaceId: currentWorkspace.id, ...formData },
+        { headers: { Authorization: `Bearer ${await getToken()}` } },
+      );
+
+      // FIX: Utiliser data.project (structure correcte du serveur)
+      console.log("✅ Project créé:", data.project);
+      dispatch(addProject(data.project));
+
+      // FIX: Réinitialiser le formulaire
+      setFormData({
+        name: "",
+        description: "",
+        status: "PLANNING",
+        priority: "MEDIUM",
+        start_date: "",
+        end_date: "",
+        team_members: [],
+        team_lead: "",
+        progress: 0,
+      });
+
+      setIsDialogOpen(false);
+      toast.success("Tetikasa voaforina soa aman-tsara!"); // FIX: Message de succès
+    } catch (error) {
+      console.error("❌ Erreur création project:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          "Nisy zavatra tsy nety tamin'ny famoronana tetikasa.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const removeTeamMember = (email) => {
@@ -191,10 +240,14 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
               }}
             >
               <option value="">Ampiditra Mpikambana Ao Anaty Ekipa</option>
+              {/* FIX: Utiliser member.user.email correctement */}
               {currentWorkspace?.members
-                ?.filter((email) => !formData.team_members.includes(email))
+                ?.filter(
+                  (member) =>
+                    !formData.team_members.includes(member.user.email),
+                )
                 .map((member) => (
-                  <option key={member.user.email} value={member.email}>
+                  <option key={member.user.email} value={member.user.email}>
                     {member.user.email}
                   </option>
                 ))}

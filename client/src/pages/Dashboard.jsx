@@ -6,8 +6,10 @@ import RecentActivity from "../components/RecentActivity";
 import TasksSummary from "../components/TasksSummary";
 import CreateProjectDialog from "../components/CreateProjectDialog";
 
+import { useUser } from "@clerk/clerk-react";
+
 const Dashboard = () => {
-  const user = { fullName: "User" };
+  const { user } = useUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
@@ -16,7 +18,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
             {" "}
-            Tongasoa indray, {user?.fullName || "User"}{" "}
+            Tongasoa indray, {user?.lastName || "User"}{" "}
           </h1>
           <p className="text-gray-500 dark:text-zinc-400 text-sm">
             {" "}

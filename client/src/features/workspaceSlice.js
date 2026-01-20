@@ -70,11 +70,25 @@ const workspaceSlice = createSlice({
       );
     },
     addProject: (state, action) => {
+      // FIX: Vérifier que currentWorkspace et projects existent
+      if (!state.currentWorkspace) {
+        console.warn("⚠️ Pas de workspace courant");
+        return;
+      }
+      
+      if (!state.currentWorkspace.projects) {
+        state.currentWorkspace.projects = [];
+      }
+      
       state.currentWorkspace.projects.push(action.payload);
+      
       // find workspace by id and add project to it
       state.workspaces = state.workspaces.map((w) =>
         w.id === state.currentWorkspace.id
-          ? { ...w, projects: w.projects.concat(action.payload) }
+          ? { 
+              ...w, 
+              projects: [...(w.projects || []), action.payload] 
+            }
           : w
       );
     },
