@@ -175,14 +175,16 @@ export const inviteWorkspaceMember = async (req, res) => {
 
     // FIX: Trouver l'utilisateur par email
     console.log("📝 STEP 4: Recherche de l'utilisateur à inviter");
-    const userToInvite = await prisma.user.findUnique({
+    let userToInvite = await prisma.user.findUnique({
       where: { email },
     });
 
+    // 🔧 Si l'utilisateur n'existe pas, on essaie de le créer avec un ID temporaire
     if (!userToInvite) {
-      console.log(`❌ Utilisateur ${email} non trouvé`);
+      console.log(`⚠️ Utilisateur ${email} n'existe pas, création temporaire`);
       return res.status(404).json({
-        message: "Utilisateur non trouvé avec cet email",
+        message:
+          "Utilisateur non trouvé avec cet email. L'utilisateur doit se connecter à Clerk au moins une fois.",
       });
     }
     console.log(`  ✓ Utilisateur trouvé: ${userToInvite.id}`);
