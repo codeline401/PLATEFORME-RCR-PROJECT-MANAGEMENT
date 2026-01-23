@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteTask, updateTask } from "../features/workspaceSlice";
+import { deleteTask, updateTask } from "../features/workspaceSlice.js";
 import {
   Bug,
   CalendarIcon,
@@ -14,6 +14,8 @@ import {
   XIcon,
   Zap,
 } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../configs/api.js";
 
 const typeIcons = {
   BUG: { icon: Bug, color: "text-red-600 dark:text-red-400" },
@@ -42,6 +44,8 @@ const priorityTexts = {
 };
 
 const ProjectTasks = ({ tasks }) => {
+  const { getToken } = useAuth();
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [selectedTasks, setSelectedTasks] = useState([]);
@@ -56,7 +60,7 @@ const ProjectTasks = ({ tasks }) => {
   const assigneeList = useMemo(
     () =>
       Array.from(new Set(tasks.map((t) => t.assignee?.name).filter(Boolean))),
-    [tasks]
+    [tasks],
   );
 
   const filteredTasks = useMemo(() => {
@@ -79,9 +83,13 @@ const ProjectTasks = ({ tasks }) => {
   const handleStatusChange = async (taskId, newStatus) => {
     try {
       toast.loading("Updating status...");
+      const token = await getToken();
 
-      //  Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await api.put(
+        `/api/tasks/${taskId}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
 
       let updatedTask = structuredClone(tasks.find((t) => t.id === taskId));
       updatedTask.status = newStatus;
@@ -98,14 +106,18 @@ const ProjectTasks = ({ tasks }) => {
   const handleDelete = async () => {
     try {
       const confirm = window.confirm(
-        "Are you sure you want to delete the selected tasks?"
+        "Ho fafana marina ve io Asa nofidinao io ?",
       );
       if (!confirm) return;
+      const token = await getToken();
 
       toast.loading("Deleting tasks...");
 
-      //  Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await api.post(
+        "/api/tasks/delete",
+        { taskIds: selectedTasks },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
 
       dispatch(deleteTask(selectedTasks));
 
@@ -211,12 +223,12 @@ const ProjectTasks = ({ tasks }) => {
                       className="size-3 accent-zinc-600 dark:accent-zinc-500"
                     />
                   </th>
-                  <th className="px-4 pl-0 py-3">Title</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 pl-0 py-3">Anarany</th>
+                  <th className="px-4 py-3">Karazany</th>
                   <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Assignee</th>
-                  <th className="px-4 py-3">Due Date</th>
+                  <th className="px-4 py-3">Ho an'i</th>
+                  <th className="px-4 py-3">Daty hiafaran'ny asa</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +243,7 @@ const ProjectTasks = ({ tasks }) => {
                         key={task.id}
                         onClick={() =>
                           navigate(
-                            `/taskDetails?projectId=${task.projectId}&taskId=${task.id}`
+                            `/taskDetails?projectId=${task.projectId}&taskId=${task.id}`,
                           )
                         }
                         className=" border-t border-zinc-300 dark:border-zinc-800 group hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all cursor-pointer"
@@ -246,7 +258,7 @@ const ProjectTasks = ({ tasks }) => {
                             onChange={() =>
                               selectedTasks.includes(task.id)
                                 ? setSelectedTasks(
-                                    selectedTasks.filter((i) => i !== task.id)
+                                    selectedTasks.filter((i) => i !== task.id),
                                   )
                                 : setSelectedTasks((prev) => [...prev, task.id])
                             }
@@ -342,7 +354,7 @@ const ProjectTasks = ({ tasks }) => {
                         onChange={() =>
                           selectedTasks.includes(task.id)
                             ? setSelectedTasks(
-                                selectedTasks.filter((i) => i !== task.id)
+                                selectedTasks.filter((i) => i !== task.id),
                               )
                             : setSelectedTasks((prev) => [...prev, task.id])
                         }

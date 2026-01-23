@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Mail, UserPlus } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useOrganization } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
 
 const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
+  const { organization } = useOrganization();
+
   const currentWorkspace = useSelector(
-    (state) => state.workspace?.currentWorkspace || null
+    (state) => state.workspace?.currentWorkspace || null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -14,6 +18,23 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await organization.inviteMember({
+        emailAddress: formData.email,
+        role: formData.role,
+      });
+      toast.success("Lasa soa amantsara ny fanasana ilay Mpikambana!");
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.log("Erreur inviteMember:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          "Nisy zavatra tsy nety tamin'ny fanasana ilay Mpikambana.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isDialogOpen) return null;
@@ -25,11 +46,11 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         <div className="mb-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <UserPlus className="size-5 text-zinc-900 dark:text-zinc-200" />{" "}
-            Hanasa Mpikambana
+            Invite Team Member
           </h2>
           {currentWorkspace && (
             <p className="text-sm text-zinc-700 dark:text-zinc-400">
-              Hanasa Ao Anaty Tranon'Asa:{" "}
+              Inviting to workspace:{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 {currentWorkspace.name}
               </span>
@@ -45,7 +66,7 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
               htmlFor="email"
               className="text-sm font-medium text-zinc-900 dark:text-zinc-200"
             >
-              Adiresy Mailaka
+              Email Address
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 w-4 h-4" />
@@ -65,7 +86,7 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
           {/* Role */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-900 dark:text-zinc-200">
-              Andraikitra
+              Role
             </label>
             <select
               value={formData.role}
@@ -74,8 +95,8 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
               }
               className="w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 py-2 px-3 mt-1 focus:outline-none focus:border-blue-500 text-sm"
             >
-              <option value="org:member">Mpikambana</option>
-              <option value="org:admin">Mpandrindra</option>
+              <option value="org:member">Member</option>
+              <option value="org:admin">Admin</option>
             </select>
           </div>
 

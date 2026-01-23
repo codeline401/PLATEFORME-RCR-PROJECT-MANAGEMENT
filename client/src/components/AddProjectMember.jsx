@@ -1,20 +1,27 @@
 import { useState } from "react";
 import { Mail, UserPlus } from "lucide-react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../configs/api.js";
+import toast from "react-hot-toast";
+import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
   const [searchParams] = useSearchParams();
 
   const id = searchParams.get("id");
 
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
+
   const currentWorkspace = useSelector(
-    (state) => state.workspace?.currentWorkspace || null
+    (state) => state.workspace?.currentWorkspace || null,
   );
 
   const project = currentWorkspace?.projects.find((p) => p.id === id);
   const projectMembersEmails = project?.members.map(
-    (member) => member.user.email
+    (member) => member.user.email,
   );
 
   const [email, setEmail] = useState("");
@@ -22,6 +29,28 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsAdding(true);
+    try {
+      // FIX: Retirer les espaces et utiliser le bon chemin
+      const token = await getToken();
+      await api.post(
+        `/api/projects/${project.id}/addMemberToProject`,
+        { memberEmail: email }, // FIX: Key doit être memberEmail (voir contrôleur)
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      toast.success("Mpikambana tafiditra soa aman-tsara ao amin'ny Tetikasa");
+      setEmail("");
+      setIsDialogOpen(false);
+      // FIX: Envoyer le token, pas la fonction
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("❌ Erreur ajout membre:", error);
+      toast.error(error?.response?.data?.message || error.message);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   if (!isDialogOpen) return null;
@@ -68,7 +97,7 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
                 {currentWorkspace?.members
                   .filter(
                     (member) =>
-                      !projectMembersEmails.includes(member.user.email)
+                      !projectMembersEmails.includes(member.user.email),
                   )
                   .map((member) => (
                     <option key={member.user.id} value={member.user.email}>

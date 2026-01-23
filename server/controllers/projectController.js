@@ -190,16 +190,21 @@ export const createProject = async (req, res) => {
 
 // update project
 export const updateProject = async (req, res) => {
-  // Logic to update a project
   try {
-    // FIX: Utiliser req.userId au lieu de req.auth.userId
+    // ========== 1. RÉCUPÉRATION DES DONNÉES ==========
+    console.log("📝 STEP 1: Récupération des données");
     const userId = req.userId;
+    const { projectId } = req.params; // FIX: Récupérer projectId des paramètres
+
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    if (!projectId) {
+      return res.status(400).json({ message: "projectId manquant" });
+    }
+
     const {
-      workspaceId,
       description,
       name,
       status,
@@ -207,64 +212,78 @@ export const updateProject = async (req, res) => {
       end_date,
       progress,
       priority,
-      team_lead,
-    } = req.body; // get project details from request body
+    } = req.body;
 
-    // Check if user has admin role for workspace
-    // FIX: Corriger typo worksapce → workspace
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      include: { members: { include: { user: true } } },
+    console.log(`  ✓ projectId: ${projectId}`);
+    console.log(`  ✓ userId: ${userId}`);
+
+    // ========== 2. VÉRIFICATION DU PROJECT ==========
+    console.log("📝 STEP 2: Vérification du project");
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { workspace: { include: { members: true } } },
     });
 
-    // workspace not found
-    if (!workspace) {
+    if (!project) {
+      console.log(`  ❌ Project ${projectId} non trouvé`);
       return res
         .status(404)
-        .json({ message: "Tsy hita na Tsy misy io tranon'Asa io" });
+        .json({ message: "Tsy hita na Tsy misy io tetikasa io" });
     }
+    console.log(`  ✓ Project trouvé: ${project.name}`);
 
-    if (
-      !workspace.members.some(
-        (member) => member.userId === userId && member.role === "admin",
-      ) // check for admin role
-    ) {
-      const project = await prisma.project.findUnique({
-        where: { id }, // get project by id
+    // ========== 3. VÉRIFICATION DES PERMISSIONS ==========
+    console.log("📝 STEP 3: Vérification des permissions");
+    const workspace = project.workspace;
+
+    // FIX: Vérifier si user est ADMIN du workspace OU team_lead du project
+    const isAdmin = workspace.members.some(
+      (m) => m.userId === userId && m.role === "ADMIN",
+    );
+    const isTeamLead = project.team_lead === userId;
+
+    if (!isAdmin && !isTeamLead) {
+      console.log(`  ❌ Utilisateur ${userId} n'a pas les permissions`);
+      return res.status(403).json({
+        message: "Tsy Mety: Tsy manana alalana manova ity tetikasa ity ianao.",
       });
-      if (!project) {
-        // project not found
-        return res
-          .status(404)
-          .json({ message: "Tsy hita na Tsy misy io tetikasa io" });
-      } else if (project.team_leadId !== userId) {
-        // not team lead
-        return res.status(403).json({
-          message:
-            "Tsy Mety: Tsy manana alalana manova ity tetikasa ity ianao.",
-        });
-      }
     }
+    console.log(
+      `  ✓ Permissions OK (isAdmin: ${isAdmin}, isTeamLead: ${isTeamLead})`,
+    );
 
-    // proceed to update project
-    const project = await prisma.project.update({
-      where: { id },
+    // ========== 4. MISE À JOUR DU PROJECT ==========
+    console.log("📝 STEP 4: Mise à jour du project");
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
       data: {
-        name,
-        description,
-        status,
-        start_date: start_date ? new Date(start_date) : null,
-        end_date: end_date ? new Date(end_date) : null,
-        progress,
-        priority,
+        name: name || project.name,
+        description: description || project.description,
+        status: status || project.status,
+        priority: priority || project.priority,
+        start_date: start_date ? new Date(start_date) : project.start_date,
+        end_date: end_date ? new Date(end_date) : project.end_date,
+        progress: progress !== undefined ? progress : project.progress,
       },
     });
 
-    //
-    res.json({ project, message: "Tetikasa voavao soa aman-tsara" });
+    console.log(`  ✓ Project mis à jour: ${updatedProject.id}`);
+
+    // ========== 5. RÉPONSE ==========
+    console.log("✅ SUCCESS - Project mis à jour");
+    return res.json({
+      project: updatedProject,
+      message: "Tetikasa voavao soa aman-tsara",
+    });
   } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ message: error.code || error.message });
+    console.error("❌ ERREUR updateProject:");
+    console.error("  Message:", error.message);
+    console.error("  Code:", error.code);
+    console.error("  Stack:", error.stack);
+    return res.status(500).json({
+      message: error.message || "Erreur lors de la mise à jour du project",
+      code: error.code,
+    });
   }
 };
 
@@ -300,14 +319,18 @@ export const addMemberToProject = async (req, res) => {
       });
     }
 
-    //Check if member to add exists
-    const existingMember = await prisma.members.find(
-      (member) => member.user.email === memberEmail,
-    );
+    // FIX: Corriger prisma.members.find() → prisma.projectMember.findFirst()
+    const existingMember = await prisma.projectMember.findFirst({
+      where: {
+        projectId,
+        user: { email: memberEmail },
+      },
+      include: { user: true },
+    });
 
     if (existingMember) {
       return res.status(400).json({
-        message: "Efa mpikamabana ao anaty Tetikasa io kasainao ampidirina io",
+        message: "Efa mpikambana ao anaty Tetikasa io kasainao ampidirina io",
       });
     }
 

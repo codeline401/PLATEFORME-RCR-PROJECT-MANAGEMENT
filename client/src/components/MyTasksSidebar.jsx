@@ -6,9 +6,10 @@ import {
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
+import { useUser } from "@clerk/clerk-react";
 
 function MyTasksSidebar() {
-  const user = { id: "user_1" };
+  const { user } = useUser();
 
   const { currentWorkspace } = useSelector((state) => state.workspace);
   const [showMyTasks, setShowMyTasks] = useState(false);
@@ -29,6 +30,7 @@ function MyTasksSidebar() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchUserTasks = () => {
     const userId = user?.id || "";
     if (!userId || !currentWorkspace) return;
@@ -47,7 +49,7 @@ function MyTasksSidebar() {
 
   useEffect(() => {
     fetchUserTasks();
-  }, [currentWorkspace]);
+  }, [currentWorkspace, user?.id]);
 
   return (
     <div className="mt-6 px-3">

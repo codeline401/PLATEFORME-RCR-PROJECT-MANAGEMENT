@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { format } from "date-fns";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../configs/api.js";
+import toast from "react-hot-toast";
+import { addTask } from "../features/workspaceSlice.js";
 
 export default function CreateTaskDialog({
   showCreateTask,
   setShowCreateTask,
   projectId,
 }) {
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
+
   const currentWorkspace = useSelector(
-    (state) => state.workspace?.currentWorkspace || null
+    (state) => state.workspace?.currentWorkspace || null,
   );
   const project = currentWorkspace?.projects.find((p) => p.id === projectId);
   const teamMembers = project?.members || [];
@@ -27,18 +34,47 @@ export default function CreateTaskDialog({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const token = await getToken();
+      const { data } = await api.post(
+        "/api/tasks/",
+        {
+          ...formData,
+          workspaceId: currentWorkspace.id,
+          projectId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setShowCreateTask(false);
+      setFormData({
+        title: "",
+        description: "",
+        type: "TASK",
+        status: "TODO",
+        priority: "MEDIUM",
+        assigneeId: "",
+        due_date: "",
+      });
+      toast.success(data.message);
+      dispatch(addTask(data.task));
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return showCreateTask ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/60 backdrop-blur">
       <div className="bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg shadow-lg w-full max-w-md p-6 text-zinc-900 dark:text-white">
-        <h2 className="text-xl font-bold mb-4">Create New Task</h2>
+        <h2 className="text-xl font-bold mb-4">Hamorona Asa</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div className="space-y-1">
             <label htmlFor="title" className="text-sm font-medium">
-              Title
+              Lohateny
             </label>
             <input
               value={formData.title}
@@ -54,7 +90,7 @@ export default function CreateTaskDialog({
           {/* Description */}
           <div className="space-y-1">
             <label htmlFor="description" className="text-sm font-medium">
-              Description
+              Mombamomba ilay asa
             </label>
             <textarea
               value={formData.description}
@@ -104,7 +140,7 @@ export default function CreateTaskDialog({
           {/* Assignee and Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Assignee</label>
+              <label className="text-sm font-medium">Asa ho an'i :</label>
               <select
                 value={formData.assigneeId}
                 onChange={(e) =>
@@ -112,7 +148,7 @@ export default function CreateTaskDialog({
                 }
                 className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1"
               >
-                <option value="">Unassigned</option>
+                <option value="">Tsy omena olona</option>
                 {teamMembers.map((member) => (
                   <option key={member?.user.id} value={member?.user.id}>
                     {member?.user.email}

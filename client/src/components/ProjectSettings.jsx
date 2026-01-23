@@ -2,8 +2,17 @@ import { format } from "date-fns";
 import { Plus, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
+import { useDispatch } from "react-redux";
+import { useAuth } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
+import api from "../configs/api.js";
+import { fetchWorkspaces } from "../features/workspaceSlice.js";
 
 export default function ProjectSettings({ project }) {
+  const dispatch = useDispatch();
+  // FIX: Destructurer correctement getToken depuis useAuth()
+  const { getToken } = useAuth();
+
   const [formData, setFormData] = useState({
     name: "New Website Launch",
     description: "Initial launch for new web platform.",
@@ -19,6 +28,40 @@ export default function ProjectSettings({ project }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    toast.loading("Mise à jour en cours...");
+    try {
+      // FIX: Chemin API correct avec projectId en paramètre + le / au début
+      console.log("📝 Envoi update project...");
+      console.log("  projectId:", project.id);
+      console.log("  formData:", formData);
+
+      const url = `/api/projects/${project.id}`;
+      console.log("  URL:", url);
+
+      const { data } = await api.put(url, formData, {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+
+      console.log("✅ Réponse serveur:", data);
+      toast.dismiss();
+      toast.success(data.message || "Tetikasa voavao soa aman-tsara!");
+      setIsDialogOpen(false);
+
+      // FIX: Obtenir le token d'abord, puis l'envoyer à fetchWorkspaces
+      const token = await getToken();
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("❌ Erreur update project:", error);
+      console.error("  Status:", error?.response?.status);
+      console.error("  Data:", error?.response?.data);
+      toast.dismissAll();
+      toast.error(
+        error?.response?.data?.message || "Failed to update project.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {

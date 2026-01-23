@@ -146,6 +146,7 @@ const sendTaskAssignmentEmail = inngest.createFunction(
   { event: "app/task.assigned" },
   async ({ event, step }) => {
     const { taskId, origin } = event.data;
+    console.log(`🔍 Processing task assignment for taskId: ${taskId}`);
 
     // Fetch task details
     const task = await prisma.task.findUnique({
@@ -153,10 +154,56 @@ const sendTaskAssignmentEmail = inngest.createFunction(
       include: { assignee: true, project: true },
     });
 
-    await sendEmail({
-      to: task.assignee.email,
-      subject: `Asa vaovao ho anao ao amin'ilay Tetikasa: ${task.project.name}`,
-      body: `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
+    console.log(`📝 Task found:`, {
+      id: task?.id,
+      title: task?.title,
+      assigneeId: task?.assigneeId,
+      assignee: task?.assignee
+        ? {
+            id: task.assignee.id,
+            email: task.assignee.email,
+            name: task.assignee.name,
+          }
+        : null,
+      project: task?.project
+        ? { id: task.project.id, name: task.project.name }
+        : null,
+    });
+
+    if (!task) {
+      console.error(`❌ Task ${taskId} not found`);
+      return;
+    }
+
+    if (!task.assignee) {
+      console.log(`⏭️ Task ${taskId} has no assignee`);
+      return;
+    }
+
+    if (!task.assignee.email) {
+      console.error(`❌ Assignee ${task.assignee.id} has no email`);
+      return;
+    }
+
+    try {
+      console.log(`📧 Email to: "${task.assignee.email}"`);
+      console.log(
+        `📧 Subject: "Asa vaovao ho anao ao amin'ilay Tetikasa: ${task.project.name}"`,
+      );
+
+      // Validate email before sending
+      if (
+        !task.assignee.email ||
+        typeof task.assignee.email !== "string" ||
+        task.assignee.email.trim() === ""
+      ) {
+        throw new Error(`Invalid email: ${task.assignee.email}`);
+      }
+
+      const emailResult = await sendEmail(
+        task.assignee.email,
+        `Asa vaovao ho anao ao amin'ilay Tetikasa: ${task.project.name}`,
+        `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
               <p>
                 Salama Kamarady <strong>${task.assignee.name}</strong> 👋
               </p>
@@ -169,8 +216,8 @@ const sendTaskAssignmentEmail = inngest.createFunction(
                 <p style="margin: 0;">
                   <strong>Anarana Asa :</strong><br />
                   ${task.title}
-                  <strong>Daty :</strong><br/>
-                  ${new Date(task.due_date).toLocaleDateString()}
+                  <strong>Daty tokony hahavitan'io asa io:</strong><br/>
+                  ${task.due_date ? new Date(task.due_date).toLocaleDateString() : "Tsy misy"}
                 </p>
 
                 <p style="margin: 8px 0 0 0;">
@@ -201,10 +248,19 @@ const sendTaskAssignmentEmail = inngest.createFunction(
 
                 <p style="margin-top: 24px; color: #374151;">
                   Mirary soa,<br />
-                  <strong>RCR / T.OLO.N.A</strong>
+                  <strong>RCR / T.OLO.N.A</strong> <br />
+                  Francis R.
                 </p>
               </div>`,
-    });
+      );
+      console.log(`✅ Email sent successfully to ${task.assignee.email}`);
+    } catch (emailError) {
+      console.error(
+        `❌ Failed to send email to ${task.assignee.email}:`,
+        emailError.message,
+      );
+      throw emailError;
+    }
 
     if (
       new Date(task.due_date).toLocaleDateString() !== new Date().toDateString()
@@ -223,11 +279,10 @@ const sendTaskAssignmentEmail = inngest.createFunction(
         if (currentTask.status !== "DONE") {
           await step.run("send-task-reminder-mail", async () => {
             // send reminder email
-            await sendEmail({
-              // send email
-              to: currentTask.assignee.email,
-              subject: `Fampatsiahivana anao ilay asa ${task.project.name} mbola tsy vita`,
-              body: `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
+            await sendEmail(
+              currentTask.assignee.email,
+              `Fampatsiahivana anao ilay asa ${task.project.name} mbola tsy vita`,
+              `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
                       <p>
                         Salama Kamarady <strong>${currentTask.assignee.name}</strong> 👋
                       </p>
@@ -271,7 +326,7 @@ const sendTaskAssignmentEmail = inngest.createFunction(
                         <strong>RCR / T.OLO.N.A</strong>
                       </p>
                     </div>`,
-            });
+            );
           });
         }
       });

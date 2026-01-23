@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Clock, AlertTriangle, User } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useUser } from "@clerk/clerk-react";
 
 export default function TasksSummary() {
   const { currentWorkspace } = useSelector((state) => state.workspace);
-  const user = { id: "user_1" };
+  const { user } = useUser();
   const [tasks, setTasks] = useState([]);
 
   // Get all tasks for all projects in current workspace
@@ -14,16 +15,16 @@ export default function TasksSummary() {
     }
   }, [currentWorkspace]);
 
-  const myTasks = tasks.filter((i) => i.assigneeId === user.id);
+  const myTasks = tasks.filter((i) => i.assigneeId === user?.id);
   const overdueTasks = tasks.filter(
     (t) =>
-      t.due_date && new Date(t.due_date) < new Date() && t.status !== "DONE"
+      t.due_date && new Date(t.due_date) < new Date() && t.status !== "DONE",
   );
   const inProgressIssues = tasks.filter((i) => i.status === "IN_PROGRESS");
 
   const summaryCards = [
     {
-      title: "My Tasks",
+      title: "Asako",
       count: myTasks.length,
       icon: User,
       color:
@@ -31,14 +32,14 @@ export default function TasksSummary() {
       items: myTasks.slice(0, 3),
     },
     {
-      title: "Overdue",
+      title: "Asako efa vita",
       count: overdueTasks.length,
       icon: AlertTriangle,
       color: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
       items: overdueTasks.slice(0, 3),
     },
     {
-      title: "In Progress",
+      title: "Asako efa mandeha",
       count: inProgressIssues.length,
       icon: Clock,
       color: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400",
@@ -73,7 +74,7 @@ export default function TasksSummary() {
           <div className="p-4">
             {card.items.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
-                Tsia {card.title.toLowerCase()}
+                {card.title.toLowerCase()}
               </p>
             ) : (
               <div className="space-y-3">
