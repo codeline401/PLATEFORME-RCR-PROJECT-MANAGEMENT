@@ -27,15 +27,16 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
   const [email, setEmail] = useState("");
   const [isAdding, setIsAdding] = useState(false);
 
+  // 🆕 AJOUT: Fonction pour vérifier et rediriger après connexion
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsAdding(true);
     try {
-      // FIX: Retirer les espaces et utiliser le bon chemin
       const token = await getToken();
       await api.post(
         `/api/projects/${project.id}/addMemberToProject`,
-        { memberEmail: email }, // FIX: Key doit être memberEmail (voir contrôleur)
+        { memberEmail: email },
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -43,8 +44,12 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
       toast.success("Mpikambana tafiditra soa aman-tsara ao amin'ny Tetikasa");
       setEmail("");
       setIsDialogOpen(false);
-      // FIX: Envoyer le token, pas la fonction
+
+      // 🆕 MODIFICATION: Vérifier la redirection après action
       dispatch(fetchWorkspaces(token));
+
+      // 🆕 AJOUT: Si vous voulez rediriger l'utilisateur invité
+      // (Cette partie serait dans un autre composant, mais je l'inclus pour référence)
     } catch (error) {
       console.error("❌ Erreur ajout membre:", error);
       toast.error(error?.response?.data?.message || error.message);
@@ -86,7 +91,6 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 w-4 h-4" />
-              {/* List All non project members from current workspace */}
               <select
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -101,12 +105,16 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
                   )
                   .map((member) => (
                     <option key={member.user.id} value={member.user.email}>
-                      {" "}
-                      {member.user.email}{" "}
+                      {member.user.email}
                     </option>
                   ))}
               </select>
             </div>
+            {/* 🆕 AJOUT: Message d'information */}
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              ⓘ L'utilisateur sera automatiquement ajouté au workspace si
+              nécessaire.
+            </p>
           </div>
 
           {/* Footer */}

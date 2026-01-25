@@ -4,7 +4,6 @@ export const createProject = async (req, res) => {
   try {
     // ========== 1. RÉCUPÉRATION DES DONNÉES ==========
     console.log("📝 STEP 1: Récupération des données");
-    // FIX: Utiliser req.userId au lieu de req.auth.userId (middleware stocke ici)
     const userId = req.userId;
 
     if (!userId) {
@@ -25,7 +24,6 @@ export const createProject = async (req, res) => {
       priority,
     } = req.body;
 
-    // Validation des champs obligatoires
     if (!workspaceId || !name) {
       return res.status(400).json({
         message: "workspaceId et name sont obligatoires",
@@ -65,7 +63,7 @@ export const createProject = async (req, res) => {
 
     // ========== 4. RÉCUPÉRATION DU TEAM LEAD ==========
     console.log("📝 STEP 4: Récupération du team lead");
-    let finalTeamLead = userId; // Par défaut, c'est l'utilisateur courant
+    let finalTeamLead = userId;
 
     if (team_lead) {
       console.log(`  Recherche team_lead par email: ${team_lead}`);
@@ -104,7 +102,7 @@ export const createProject = async (req, res) => {
         end_date: end_date ? new Date(end_date) : null,
         progress: progress || 0,
         priority: priority || "MEDIUM",
-        team_lead: finalTeamLead, // ✅ Utiliser team_lead (String), pas owner (relation)
+        team_lead: finalTeamLead,
       },
     });
 
@@ -116,7 +114,6 @@ export const createProject = async (req, res) => {
     if (team_members && team_members.length > 0) {
       console.log(`  ${team_members.length} membres à ajouter`);
 
-      // Mapper les emails fournis aux IDs des utilisateurs du workspace
       const memberIds = [];
       for (const memberEmail of team_members) {
         const member = workspace.members.find(
@@ -132,7 +129,6 @@ export const createProject = async (req, res) => {
         }
       }
 
-      // Créer les ProjectMembers
       if (memberIds.length > 0) {
         try {
           const result = await prisma.projectMember.createMany({
@@ -148,7 +144,6 @@ export const createProject = async (req, res) => {
             `  ⚠️  Erreur lors de l'ajout des membres:`,
             memberError.message,
           );
-          // On continue quand même - le project a été créé
         }
       } else {
         console.log(`  ℹ️  Aucun membre valide trouvé à ajouter`);
@@ -167,7 +162,6 @@ export const createProject = async (req, res) => {
       message: "Tetikasa voaforina soa aman-tsara",
     });
   } catch (error) {
-    // ========== GESTION DES ERREURS ==========
     console.error("❌ ERREUR FATALE dans createProject:");
     console.error("  Message:", error.message);
     console.error("  Code:", error.code);
@@ -191,10 +185,9 @@ export const createProject = async (req, res) => {
 // update project
 export const updateProject = async (req, res) => {
   try {
-    // ========== 1. RÉCUPÉRATION DES DONNÉES ==========
     console.log("📝 STEP 1: Récupération des données");
     const userId = req.userId;
-    const { projectId } = req.params; // FIX: Récupérer projectId des paramètres
+    const { projectId } = req.params;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -217,7 +210,6 @@ export const updateProject = async (req, res) => {
     console.log(`  ✓ projectId: ${projectId}`);
     console.log(`  ✓ userId: ${userId}`);
 
-    // ========== 2. VÉRIFICATION DU PROJECT ==========
     console.log("📝 STEP 2: Vérification du project");
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -232,11 +224,9 @@ export const updateProject = async (req, res) => {
     }
     console.log(`  ✓ Project trouvé: ${project.name}`);
 
-    // ========== 3. VÉRIFICATION DES PERMISSIONS ==========
     console.log("📝 STEP 3: Vérification des permissions");
     const workspace = project.workspace;
 
-    // FIX: Vérifier si user est ADMIN du workspace OU team_lead du project
     const isAdmin = workspace.members.some(
       (m) => m.userId === userId && m.role === "ADMIN",
     );
@@ -252,7 +242,6 @@ export const updateProject = async (req, res) => {
       `  ✓ Permissions OK (isAdmin: ${isAdmin}, isTeamLead: ${isTeamLead})`,
     );
 
-    // ========== 4. MISE À JOUR DU PROJECT ==========
     console.log("📝 STEP 4: Mise à jour du project");
     const updatedProject = await prisma.project.update({
       where: { id: projectId },
@@ -269,7 +258,6 @@ export const updateProject = async (req, res) => {
 
     console.log(`  ✓ Project mis à jour: ${updatedProject.id}`);
 
-    // ========== 5. RÉPONSE ==========
     console.log("✅ SUCCESS - Project mis à jour");
     return res.json({
       project: updatedProject,
@@ -287,39 +275,45 @@ export const updateProject = async (req, res) => {
   }
 };
 
-// Add member to project
+// Add member to project - MODIFIÉ POUR CORRIGER LE PROBLÈME
 export const addMemberToProject = async (req, res) => {
   try {
-    // Logic to add member to a project
-    // FIX: Utiliser req.userId au lieu de req.auth.userId
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const { projectId } = req.params; // get projectId from request params
-    const { memberEmail } = req.body; // get member email from request body
 
-    // Check if user is project team lead
+    const { projectId } = req.params;
+    const { memberEmail } = req.body;
+
+    // 🆕 MODIFICATION: Récupérer le projet AVEC son workspace
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      include: { members: { include: { user: true } } },
+      include: {
+        workspace: {
+          include: { members: true },
+        },
+        members: {
+          include: { user: true },
+        },
+      },
     });
 
-    // project not found
     if (!project) {
-      return res
-        .status(404)
-        .json({ message: "Tsy hita na Tsy misy io tetikasa io" });
-    }
-
-    if (project.team_lead !== userId) {
-      return res.status(403).json({
-        message:
-          "Tsy Mety: Ny Mpandindra ny tentikasa ihany no afaka manampy mpikambana vaovao.",
+      return res.status(404).json({
+        message: "Tsy hita na Tsy misy io tetikasa io",
       });
     }
 
-    // FIX: Corriger prisma.members.find() → prisma.projectMember.findFirst()
+    // Vérifier permissions (team_lead du projet)
+    if (project.team_lead !== userId) {
+      return res.status(403).json({
+        message:
+          "Tsy Mety: Ny Mpandindra ny tetikasa ihany no afaka manampy mpikambana vaovao.",
+      });
+    }
+
+    // Vérifier si déjà membre du projet
     const existingMember = await prisma.projectMember.findFirst({
       where: {
         projectId,
@@ -334,6 +328,7 @@ export const addMemberToProject = async (req, res) => {
       });
     }
 
+    // Trouver l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email: memberEmail },
     });
@@ -344,6 +339,27 @@ export const addMemberToProject = async (req, res) => {
       });
     }
 
+    // 🆕 CRITIQUE: Vérifier si l'utilisateur est déjà membre du workspace
+    const isWorkspaceMember = project.workspace.members.some(
+      (member) => member.userId === user.id,
+    );
+
+    // 🆕 Si l'utilisateur n'est PAS dans le workspace, on l'ajoute
+    if (!isWorkspaceMember) {
+      console.log(
+        `🔄 Ajout de l'utilisateur ${user.email} au workspace ${project.workspaceId}`,
+      );
+
+      await prisma.workspaceMember.create({
+        data: {
+          userId: user.id,
+          workspaceId: project.workspaceId,
+          role: "MEMBER",
+        },
+      });
+    }
+
+    // Ajouter au projet
     const member = await prisma.projectMember.create({
       data: {
         projectId,
@@ -353,7 +369,7 @@ export const addMemberToProject = async (req, res) => {
 
     res.json({
       member,
-      message: "Mpikambana tafiditra soa aman-tsaraao anaty tetikasa",
+      message: "Mpikambana tafiditra soa aman-tsara ao anaty tetikasa",
     });
   } catch (error) {
     console.error("Error adding member to project:", error);

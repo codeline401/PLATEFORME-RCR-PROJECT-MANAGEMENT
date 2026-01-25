@@ -3,6 +3,7 @@ import {
   getUserWorkspaces,
   addWorkspaceMember,
   inviteWorkspaceMember,
+  checkUserInvitations,
 } from "../controllers/workspaceController.js";
 
 const workspaceRouter = express.Router();
@@ -11,6 +12,7 @@ workspaceRouter.get("/", getUserWorkspaces);
 workspaceRouter.post("/add-member", addWorkspaceMember);
 // FIX: Ajouter la route pour inviter un membre au workspace
 workspaceRouter.post("/:workspaceId/invite", inviteWorkspaceMember);
+workspaceRouter.get("/invitation/check", checkUserInvitations);
 
 export default workspaceRouter;
 
