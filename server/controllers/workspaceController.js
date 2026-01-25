@@ -68,7 +68,7 @@ export const addWorkspaceMember = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        message: "Utilisateur introuvable",
+        message: "Mpikambana tsy hita",
       });
     }
 
@@ -83,7 +83,7 @@ export const addWorkspaceMember = async (req, res) => {
 
     if (!adminCheck) {
       return res.status(403).json({
-        message: "Seul un ADMIN peut ajouter des membres",
+        message: "Ny Mpiandraikitra ihany no afaka mampiditra mpikambana",
       });
     }
 
@@ -113,7 +113,7 @@ export const addWorkspaceMember = async (req, res) => {
 
     return res.status(201).json({
       member,
-      message: "Membre ajouté avec succès",
+      message: "Mpikambana tafiditra soa aman-tsara",
     });
   } catch (error) {
     console.error("❌ addWorkspaceMember error:", error);
