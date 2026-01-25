@@ -123,110 +123,88 @@ export const addWorkspaceMember = async (req, res) => {
   }
 };
 
-// ✅ Invite member to workspace (appelé depuis le frontend)
+// ❌ AVANT : invitation par email sans lien Clerk
+// ✅ APRÈS : on autorise uniquement un utilisateur déjà créé par Clerk
+
 export const inviteWorkspaceMember = async (req, res) => {
   try {
-    const userId = req.userId; // Utilisateur qui invite (from auth middleware)
-    const { workspaceId } = req.params; // ID du workspace dans l'URL
-    const { email, role } = req.body; // Email et rôle du nouvel utilisateur
+    const currentClerkUserId = req.userId; // clerkUserId (injecté par middleware)
+    const { workspaceId } = req.params;
+    const { email, role } = req.body;
 
-    console.log("📝 STEP 1: Invitation membre");
-    console.log(`  userId: ${userId}`);
-    console.log(`  workspaceId: ${workspaceId}`);
-    console.log(`  email: ${email}`);
-    console.log(`  role: ${role}`);
-
-    // FIX: Validation des champs obligatoires
-    if (!email || !role || !workspaceId) {
-      console.log("❌ Champs manquants");
+    // 1️⃣ Validation
+    if (!email || !workspaceId || !role) {
       return res.status(400).json({
         message: "Email, rôle et workspaceId sont obligatoires",
       });
     }
 
-    // FIX: Vérifier que le workspace existe
-    console.log("📝 STEP 2: Vérification du workspace");
+    // 2️⃣ Vérifier workspace
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: { members: true },
     });
 
     if (!workspace) {
-      console.log(`❌ Workspace ${workspaceId} non trouvé`);
-      return res.status(404).json({
-        message: "Workspace non trouvé",
-      });
+      return res.status(404).json({ message: "Workspace non trouvé" });
     }
-    console.log(`  ✓ Workspace trouvé: ${workspace.name}`);
 
-    // FIX: Vérifier les permissions (l'utilisateur doit être ADMIN)
-    console.log("📝 STEP 3: Vérification des permissions");
+    // 3️⃣ Vérifier ADMIN
     const isAdmin = workspace.members.some(
-      (m) => m.userId === userId && m.role === "ADMIN",
+      (m) => m.user.clerkId === currentClerkUserId && m.role === "ADMIN",
     );
 
     if (!isAdmin) {
-      console.log(`❌ Utilisateur ${userId} n'est pas ADMIN`);
       return res.status(403).json({
-        message: "Seul un ADMIN peut inviter des membres",
+        message: "Seul un ADMIN peut inviter",
       });
     }
-    console.log("  ✓ Utilisateur est ADMIN");
 
-    // FIX: Trouver l'utilisateur par email
-    console.log("📝 STEP 4: Recherche de l'utilisateur à inviter");
-    let userToInvite = await prisma.user.findUnique({
+    // 4️⃣ Trouver l'utilisateur (DOIT venir de Clerk)
+    const userToInvite = await prisma.user.findUnique({
       where: { email },
     });
 
-    // 🔧 Si l'utilisateur n'existe pas, on essaie de le créer avec un ID temporaire
-    if (!userToInvite) {
-      console.log(`⚠️ Utilisateur ${email} n'existe pas, création temporaire`);
-      return res.status(404).json({
+    // ❗ IMPORTANT : l'utilisateur doit déjà s'être connecté à Clerk
+    if (!userToInvite || !userToInvite.clerkId) {
+      return res.status(400).json({
         message:
-          "Utilisateur non trouvé avec cet email. L'utilisateur doit se connecter à Clerk au moins une fois.",
+          "L'utilisateur doit d'abord accepter l'invitation Clerk et se connecter",
       });
     }
-    console.log(`  ✓ Utilisateur trouvé: ${userToInvite.id}`);
 
-    // FIX: Vérifier s'il est déjà membre
-    console.log("📝 STEP 5: Vérification si déjà membre");
-    const existingMember = await prisma.workspaceMember.findFirst({
+    // 5️⃣ Vérifier s'il est déjà membre
+    const alreadyMember = await prisma.workspaceMember.findFirst({
       where: {
         workspaceId,
         userId: userToInvite.id,
       },
     });
 
-    if (existingMember) {
-      console.log(`⚠️ ${email} est déjà membre`);
+    if (alreadyMember) {
       return res.status(400).json({
-        message: "Cet utilisateur est déjà membre du workspace",
+        message: "Utilisateur déjà membre du workspace",
       });
     }
 
-    // FIX: Ajouter le nouveau membre
-    console.log("📝 STEP 6: Création du membership");
-    const newMember = await prisma.workspaceMember.create({
+    // 6️⃣ Ajouter au workspace
+    const member = await prisma.workspaceMember.create({
       data: {
         userId: userToInvite.id,
         workspaceId,
-        role: role || "MEMBER",
+        role,
       },
-      include: { user: true },
     });
-
-    console.log(`  ✓ Membre ajouté: ${newMember.user.email}`);
 
     return res.status(201).json({
       success: true,
-      member: newMember,
-      message: "Invitation envoyée avec succès",
+      member,
+      message: "Membre ajouté au workspace",
     });
   } catch (error) {
-    console.error("❌ ERREUR inviteWorkspaceMember:", error.message);
+    console.error("❌ inviteWorkspaceMember:", error);
     return res.status(500).json({
-      message: error.message || "Erreur lors de l'invitation",
+      message: "Erreur serveur",
     });
   }
 };
