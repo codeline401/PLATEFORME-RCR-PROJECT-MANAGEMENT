@@ -1,6 +1,4 @@
 import { inngest } from "../inngest/index.js";
-import prisma from "../configs/prisma.js";
-import { sendEmail } from "../configs/nodemailer.js";
 
 // Create task
 export const createTask = async (req, res) => {
@@ -54,49 +52,21 @@ export const createTask = async (req, res) => {
         type,
         status,
         priority,
-        assigneeId: assigneeId || null,
-        due_date: due_date ? new Date(due_date) : null,
+        assigneeId,
+        due_date: new Date(due_date) || null,
       },
     });
 
     const taskWithAssignee = await prisma.task.findUnique({
       where: { id: task.id },
-      include: { assignee: true, project: true },
+      include: { assignee: true },
     });
 
-    // send email directly if task has an assignee
-    if (
-      assigneeId &&
-      taskWithAssignee?.assignee?.email &&
-      taskWithAssignee?.project
-    ) {
-      try {
-        await sendEmail(
-          taskWithAssignee.assignee.email,
-          `Asa vaovao ho anao ao amin'ilay Tetikasa: ${taskWithAssignee.project.name}`,
-          `<div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
-            <p>Salama Kamarady <strong>${taskWithAssignee.assignee.name}</strong> 👋</p>
-            <p>Nahazo <strong>asa vaovao</strong> ianao ao amin'ny tetikasa <strong>"${taskWithAssignee.project.name}"</strong>.</p>
-            <div style="margin: 16px 0; padding: 12px; background-color: #f9fafb; border-left: 4px solid #2563eb;">
-              <p style="margin: 0;">
-                <strong>Anarana Asa :</strong><br/>${taskWithAssignee.title}<br/>
-                <strong>Daty tokony hahavitan'io asa io :</strong><br/>${taskWithAssignee.due_date ? new Date(taskWithAssignee.due_date).toLocaleDateString() : "Tsy misy"}
-              </p>
-              <p style="margin: 8px 0 0 0;">
-                <strong>Famaritana :</strong><br/>${taskWithAssignee.description || "Tsy misy famaritana"}
-              </p>
-            </div>
-            <p><a href="${origin || "http://localhost:5173"}/projects/${taskWithAssignee.projectId}/tasks/${taskWithAssignee.id}" style="display: inline-block; padding: 10px 16px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">🔎 Hitsidika ilay Tetikasa</a></p>
-            <p style="margin-top: 24px; color: #374151;">Mirary soa,<br/><strong>RCR / T.OLO.N.A</strong><br /> Francis R.</p>
-          </div>`,
-        );
-        console.log(
-          `✅ Email sent successfully to ${taskWithAssignee.assignee.email}`,
-        );
-      } catch (emailError) {
-        console.error(`❌ Failed to send email:`, emailError.message);
-      }
-    }
+    // send
+    await inngest.send({
+      name: "app/task.assigned",
+      data: { taskId: task.id, origin },
+    });
 
     // Respond with the created task
     res.json({

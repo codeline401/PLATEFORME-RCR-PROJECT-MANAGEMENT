@@ -1,82 +1,27 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-// import api from "../configs/api";
+import api from "../configs/api";
 
 /**
  * FETCH WORKSPACES FOR THE AUTHENTICATED USER
+ * ---------------
+ * Le Token Clerk est passé depuis le composant React via la fonction getToken
+ * (car useAuth ne peut pas être utilisé dans REDUX)
  */
+
 export const fetchWorkspaces = createAsyncThunk(
   "workspace/fetchWorkspaces",
-  async (token, { rejectWithValue }) => {
+  async (token) => {
     try {
-      console.log(
-        "🔍 Fetching workspaces avec token:",
-        token ? "présent" : "absent",
-      );
-
-      //
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-      const response = await fetch(`${API_URL}/api/workspaces`, {
+      const { data } = await api.get("/api/workspaces", {
         headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
+          Authorization: `Bearer ${token}`, // ✅ token déjà prêt
         },
       });
 
-      console.log("📡 Response status:", response.status);
-      console.log("📡 Response ok:", response.ok);
-
-      // Vérifier si c'est du JSON
-      const contentType = response.headers.get("content-type");
-
-      if (!response.ok) {
-        // Erreur HTTP (401, 404, 500, etc.)
-        console.error("❌ HTTP Error:", response.status);
-
-        // Essayer de lire le message d'erreur
-        let errorMessage = `Erreur ${response.status}`;
-        try {
-          const errorText = await response.text();
-          console.error("❌ Error response:", errorText.substring(0, 200));
-          if (errorText.includes("<!DOCTYPE") || errorText.includes("<html")) {
-            errorMessage = "Le serveur retourne une page HTML d'erreur";
-          } else {
-            try {
-              const errorJson = JSON.parse(errorText);
-              errorMessage = errorJson.message || errorMessage;
-            } catch {
-              errorMessage = errorText.substring(0, 100) || errorMessage;
-            }
-          }
-        } catch {
-          // Ignorer si on ne peut pas lire la réponse
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("❌ Pas du JSON ! Contenu:", text.substring(0, 200));
-        throw new Error(
-          "Le serveur ne retourne pas du JSON (Content-Type: " +
-            contentType +
-            ")",
-        );
-      }
-
-      const data = await response.json();
-      console.log("✅ Workspaces reçus:", data.workspaces?.length || 0);
-
       return data.workspaces || [];
     } catch (error) {
-      console.error("❌ Erreur fetchWorkspaces:", error.message);
-
-      // 🆕 RETOURNER UN TABLEAU VIDE au lieu de throw pour éviter le crash
-      return rejectWithValue({
-        workspaces: [],
-        error: error.message,
-      });
+      console.error(error?.response?.data?.message || error.message);
+      throw error;
     }
   },
 );
@@ -85,14 +30,13 @@ const initialState = {
   workspaces: [],
   currentWorkspace: null,
   loading: false,
-  error: null,
+  error: null, // pour stocker les erreurs éventuelles
 };
 
 const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
   reducers: {
-    // ... vos reducers existants (gardez-les)
     setWorkspaces: (state, action) => {
       state.workspaces = action.payload;
     },
@@ -102,20 +46,144 @@ const workspaceSlice = createSlice({
         (w) => w.id === action.payload,
       );
     },
-    // ... autres reducers
+    addWorkspace: (state, action) => {
+      state.workspaces.push(action.payload);
+
+      // set current workspace to the new workspace
+      if (state.currentWorkspace?.id !== action.payload.id) {
+        state.currentWorkspace = action.payload;
+      }
+    },
+    updateWorkspace: (state, action) => {
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === action.payload.id ? action.payload : w,
+      );
+
+      // if current workspace is updated, set it to the updated workspace
+      if (state.currentWorkspace?.id === action.payload.id) {
+        state.currentWorkspace = action.payload;
+      }
+    },
+    deleteWorkspace: (state, action) => {
+      state.workspaces = state.workspaces.filter(
+        (w) => w._id !== action.payload,
+      );
+    },
+    addProject: (state, action) => {
+      // FIX: Vérifier que currentWorkspace et projects existent
+      if (!state.currentWorkspace) {
+        console.warn("⚠️ Pas de workspace courant");
+        return;
+      }
+
+      if (!state.currentWorkspace.projects) {
+        state.currentWorkspace.projects = [];
+      }
+
+      state.currentWorkspace.projects.push(action.payload);
+
+      // find workspace by id and add project to it
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
+          ? {
+              ...w,
+              projects: [...(w.projects || []), action.payload],
+            }
+          : w,
+      );
+    },
+    addTask: (state, action) => {
+      state.currentWorkspace.projects = state.currentWorkspace.projects.map(
+        (p) => {
+          console.log(
+            p.id,
+            action.payload.projectId,
+            p.id === action.payload.projectId,
+          );
+          if (p.id === action.payload.projectId) {
+            p.tasks.push(action.payload);
+          }
+          return p;
+        },
+      );
+
+      // find workspace and project by id and add task to it
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
+          ? {
+              ...w,
+              projects: w.projects.map((p) =>
+                p.id === action.payload.projectId
+                  ? { ...p, tasks: p.tasks.concat(action.payload) }
+                  : p,
+              ),
+            }
+          : w,
+      );
+    },
+    updateTask: (state, action) => {
+      state.currentWorkspace.projects.map((p) => {
+        if (p.id === action.payload.projectId) {
+          p.tasks = p.tasks.map((t) =>
+            t.id === action.payload.id ? action.payload : t,
+          );
+        }
+      });
+      // find workspace and project by id and update task in it
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
+          ? {
+              ...w,
+              projects: w.projects.map((p) =>
+                p.id === action.payload.projectId
+                  ? {
+                      ...p,
+                      tasks: p.tasks.map((t) =>
+                        t.id === action.payload.id ? action.payload : t,
+                      ),
+                    }
+                  : p,
+              ),
+            }
+          : w,
+      );
+    },
+    deleteTask: (state, action) => {
+      state.currentWorkspace.projects.map((p) => {
+        p.tasks = p.tasks.filter((t) => !action.payload.includes(t.id));
+        return p;
+      });
+      // find workspace and project by id and delete task from it
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
+          ? {
+              ...w,
+              projects: w.projects.map((p) =>
+                p.id === action.payload.projectId
+                  ? {
+                      ...p,
+                      tasks: p.tasks.filter(
+                        (t) => !action.payload.includes(t.id),
+                      ),
+                    }
+                  : p,
+              ),
+            }
+          : w,
+      );
+    },
   },
   extraReducers: (builder) => {
+    //
     builder
       .addCase(fetchWorkspaces.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
+
+      // succès
       .addCase(fetchWorkspaces.fulfilled, (state, action) => {
         state.workspaces = action.payload;
-        state.loading = false;
-        state.error = null;
-
-        // Sélectionner le workspace courant
         if (action.payload.length > 0) {
           const localStorageCurrentWorkspaceId =
             localStorage.getItem("currentWorkspaceId");
@@ -131,19 +199,13 @@ const workspaceSlice = createSlice({
           } else {
             state.currentWorkspace = action.payload[0];
           }
-        } else {
-          state.currentWorkspace = null;
         }
-      })
-      .addCase(fetchWorkspaces.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error?.message || "Erreur inconnue";
+      })
 
-        // 🆕 IMPORTANT: Mettre un tableau vide pour éviter le blocage
-        state.workspaces = [];
-        state.currentWorkspace = null;
-
-        console.log("⚠️ Workspaces fetch échoué, tableau vide utilisé");
+      // ERROR (401 inclus)
+      .addCase(fetchWorkspaces.rejected, (state) => {
+        state.loading = false;
       });
   },
 });

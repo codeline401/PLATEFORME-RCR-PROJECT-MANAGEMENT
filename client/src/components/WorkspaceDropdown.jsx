@@ -14,7 +14,7 @@ function WorkspaceDropdown() {
 
   const { workspaces } = useSelector((state) => state.workspace);
   const currentWorkspace = useSelector(
-    (state) => state.workspace?.currentWorkspace || null
+    (state) => state.workspace?.currentWorkspace || null,
   );
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
