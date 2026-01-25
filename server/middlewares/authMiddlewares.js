@@ -3,7 +3,13 @@ import { getAuth } from "@clerk/express";
 export const protect = (req, res, next) => {
   try {
     // 1️⃣ Récupération des infos Clerk
-    const { userId, orgId } = getAuth(req);
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+
+    // Debug
+    console.log("🔍 Auth Middleware - userId:", userId);
+    console.log("🔍 Auth Middleware - orgId:", auth?.orgId);
+    console.log("🔍 Auth Middleware - sessionId:", auth?.sessionId);
 
     // ❌ Pas connecté
     if (!userId) {
@@ -11,20 +17,17 @@ export const protect = (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // ❌ Connecté MAIS aucune organisation active
-    // 👉 C'est CE CAS qui déclenche "Create organization"
-    if (!orgId) {
-      console.log(`❌ Auth: User ${userId} has no active organization`);
-      return res.status(403).json({
-        message: "No active organization",
-      });
-    }
-
-    console.log(`✅ Auth: User ${userId} in org ${orgId}`);
+    // ✅ MODIFICATION IMPORTANTE : NE PAS BLOQUER si pas d'organisation
+    // Laissez l'utilisateur passer, c'est le frontend qui gérera la redirection
+    console.log(`✅ Auth: User ${userId} authenticated`);
 
     // 2️⃣ Injection dans req pour les controllers
     req.userId = userId; // clerkUserId
-    req.orgId = orgId; // clerkOrganizationId
+    req.user = {
+      clerkId: userId,
+      orgId: auth?.orgId,
+      sessionId: auth?.sessionId,
+    };
 
     next();
   } catch (error) {

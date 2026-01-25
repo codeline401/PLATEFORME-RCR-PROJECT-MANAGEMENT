@@ -1,14 +1,19 @@
-import express from "express"; // Importing Express framework
+import express from "express";
 import {
   createProject,
   updateProject,
   addMemberToProject,
-} from "../controllers/projectController.js"; // Importing the createProject controller function
+} from "../controllers/projectController.js";
+import { protect } from "../middlewares/authMiddlewares.js";
 
-const projectRouter = express.Router(); // Creating a new router for project-related routes
+const projectRouter = express.Router();
 
-projectRouter.post("/", createProject); // Defining a POST route for creating a project
-// FIX: Ajouter :projectId à la route PUT
-projectRouter.put("/:projectId", updateProject); // Defining a PUT route for updating a project
-projectRouter.post("/:projectId/addMemberToProject", addMemberToProject); // Defining a POST route for adding members to a project
-export default projectRouter; // Exporting the router to be used in other parts of the application
+projectRouter.post("/", protect, createProject);
+projectRouter.put("/:projectId", protect, updateProject);
+projectRouter.post(
+  "/:projectId/addMemberToProject",
+  protect,
+  addMemberToProject,
+);
+
+export default projectRouter;
