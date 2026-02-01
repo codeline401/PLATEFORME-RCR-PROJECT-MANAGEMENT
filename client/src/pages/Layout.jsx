@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loadTheme } from "../features/themeSlice";
 import { Loader2Icon } from "lucide-react";
@@ -15,6 +15,7 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
 
   const { loading, workspaces } = useSelector((state) => state.workspace);
   const dispatch = useDispatch();
@@ -35,6 +36,7 @@ const Layout = () => {
    * - on attend que Clerk soit chargé
    * - on récupère le TOKEN ici
    * - on passe le token (string) au thunk Redux
+   * - on recharge aussi quand on arrive sur /dashboard (invitation link)
    */
   useEffect(() => {
     const loadWorkspaces = async () => {
@@ -44,10 +46,17 @@ const Layout = () => {
       dispatch(fetchWorkspaces(token));
     };
 
-    if (workspaces.length === 0) {
+    if (workspaces.length === 0 || location.pathname === "/dashboard") {
       loadWorkspaces();
     }
-  }, [isLoaded, user, workspaces.length, dispatch, getToken]);
+  }, [
+    isLoaded,
+    user,
+    workspaces.length,
+    dispatch,
+    getToken,
+    location.pathname,
+  ]);
 
   /**
    * 🔹 Utilisateur non connecté
