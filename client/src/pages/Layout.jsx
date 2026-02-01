@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loadTheme } from "../features/themeSlice";
 import { Loader2Icon } from "lucide-react";
@@ -15,9 +15,7 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const location = useLocation();
   const hasLoadedRef = useRef(false);
-  const dashboardRetryRef = useRef(0);
 
   const { loading, workspaces } = useSelector((state) => state.workspace);
   const dispatch = useDispatch();

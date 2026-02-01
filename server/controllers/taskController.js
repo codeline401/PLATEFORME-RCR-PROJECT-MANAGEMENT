@@ -1,4 +1,5 @@
 import { inngest } from "../inngest/index.js";
+import prisma from "../configs/prisma.js";
 
 // Create task
 export const createTask = async (req, res) => {
