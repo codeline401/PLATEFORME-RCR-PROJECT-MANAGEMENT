@@ -106,29 +106,12 @@ function WorkspaceDropdown() {
 
           <div
             onClick={() => {
-              if (workspaces.length === 0) {
-                openCreateOrganization();
-              }
+              openCreateOrganization();
               setIsOpen(false);
             }}
-            className={`p-2 rounded group ${
-              workspaces.length === 0
-                ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800"
-                : "opacity-50 cursor-not-allowed"
-            }`}
-            title={
-              workspaces.length > 0
-                ? "Vous ne pouvez créer qu'un seul workspace"
-                : ""
-            }
+            className="p-2 rounded group cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800"
           >
-            <p
-              className={`flex items-center text-xs gap-2 my-1 w-full ${
-                workspaces.length === 0
-                  ? "text-blue-600 dark:text-blue-400 group-hover:text-blue-500 dark:group-hover:text-blue-300"
-                  : "text-gray-500 dark:text-zinc-500"
-              }`}
-            >
+            <p className="flex items-center text-xs gap-2 my-1 w-full text-blue-600 dark:text-blue-400 group-hover:text-blue-500 dark:group-hover:text-blue-300">
               <Plus className="w-4 h-4" /> Hamorona Toeran'Asa
             </p>
           </div>
