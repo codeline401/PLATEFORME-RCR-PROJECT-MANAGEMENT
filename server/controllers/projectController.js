@@ -198,6 +198,8 @@ export const updateProject = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const { projectId } = req.params; // Get projectId from URL params
+
     const {
       workspaceId,
       description,
@@ -230,14 +232,14 @@ export const updateProject = async (req, res) => {
       ) // check for admin role
     ) {
       const project = await prisma.project.findUnique({
-        where: { id }, // get project by id
+        where: { id: projectId }, // get project by id
       });
       if (!project) {
         // project not found
         return res
           .status(404)
           .json({ message: "Tsy hita na Tsy misy io tetikasa io" });
-      } else if (project.team_leadId !== userId) {
+      } else if (project.team_lead !== userId) {
         // not team lead
         return res.status(403).json({
           message:
@@ -248,7 +250,7 @@ export const updateProject = async (req, res) => {
 
     // proceed to update project
     const project = await prisma.project.update({
-      where: { id },
+      where: { id: projectId },
       data: {
         name,
         description,
