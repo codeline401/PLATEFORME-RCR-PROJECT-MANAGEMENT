@@ -20,11 +20,12 @@ export default function CreateTaskDialog({
   );
   const project = currentWorkspace?.projects.find((p) => p.id === projectId);
 
-  // Récupérer tous les membres du projet avec leurs infos utilisateur
-  const teamMembers = project?.members?.length > 0 ? project.members : [];
+  // Récupérer tous les membres du WORKSPACE (pas seulement du projet)
+  const workspaceMembers = currentWorkspace?.members || [];
 
+  console.log("🔍 Workspace:", currentWorkspace);
+  console.log("🔍 Workspace Members:", workspaceMembers);
   console.log("🔍 Project:", project);
-  console.log("🔍 Team Members:", teamMembers);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -155,8 +156,8 @@ export default function CreateTaskDialog({
                 required
               >
                 <option value="">Tsy omena olona</option>
-                {teamMembers && teamMembers.length > 0 ? (
-                  teamMembers.map((member) => (
+                {workspaceMembers && workspaceMembers.length > 0 ? (
+                  workspaceMembers.map((member) => (
                     <option key={member?.user?.id} value={member?.user?.id}>
                       {member?.user?.name || member?.user?.email}
                     </option>
