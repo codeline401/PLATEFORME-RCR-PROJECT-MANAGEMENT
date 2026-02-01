@@ -10,42 +10,101 @@ export default function TasksSummary() {
 
   // Get all tasks for all projects in current workspace
   useEffect(() => {
-    if (currentWorkspace) {
-      setTasks(currentWorkspace.projects.flatMap((project) => project.tasks));
+    if (currentWorkspace && currentWorkspace.projects) {
+      // 🔴 CORRECTION: Vérifier que chaque projet a des tasks
+      const allTasks = currentWorkspace.projects.flatMap(
+        (project) => project.tasks || [], // Si project.tasks est undefined, utiliser tableau vide
+      );
+      setTasks(allTasks);
     }
   }, [currentWorkspace]);
 
-  const myTasks = tasks.filter((i) => i.assigneeId === user?.id);
-  const overdueTasks = tasks.filter(
-    (t) =>
-      t.due_date && new Date(t.due_date) < new Date() && t.status !== "DONE",
-  );
-  const inProgressIssues = tasks.filter((i) => i.status === "IN_PROGRESS");
+  // 🔴 CORRECTION: Vérifier que assigneeId existe
+  const myTasks = tasks.filter((task) => {
+    if (!task) return false; // Vérifier si la tâche existe
+    if (!task.assigneeId) return false; // Vérifier si assigneeId existe
+    if (!user?.id) return false; // Vérifier si user existe
+    return task.assigneeId === user.id;
+  });
 
+  const overdueTasks = tasks.filter((task) => {
+    if (!task) return false;
+    if (!task.due_date) return false;
+    return new Date(task.due_date) < new Date() && task.status !== "DONE";
+  });
+
+  const inProgressIssues = tasks.filter((task) => {
+    if (!task) return false;
+    return task.status === "IN_PROGRESS";
+  });
+
+  // 🔴 CORRECTION: Formater les données pour éviter les erreurs
   const summaryCards = [
     {
-      title: "Asako",
+      title: "Mes tâches",
       count: myTasks.length,
       icon: User,
       color:
         "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400",
-      items: myTasks.slice(0, 3),
+      items: myTasks.slice(0, 3).map((task) => ({
+        id: task.id || "unknown",
+        title: task.title || "Tâche sans titre",
+        type: task.type || "task",
+        priority: task.priority || "medium",
+      })),
     },
     {
-      title: "Asako efa vita",
+      title: "Tâches en retard",
       count: overdueTasks.length,
       icon: AlertTriangle,
       color: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
-      items: overdueTasks.slice(0, 3),
+      items: overdueTasks.slice(0, 3).map((task) => ({
+        id: task.id || "unknown",
+        title: task.title || "Tâche sans titre",
+        type: task.type || "task",
+        priority: task.priority || "medium",
+        due_date: task.due_date,
+      })),
     },
     {
-      title: "Asako efa mandeha",
+      title: "Tâches en cours",
       count: inProgressIssues.length,
       icon: Clock,
       color: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400",
-      items: inProgressIssues.slice(0, 3),
+      items: inProgressIssues.slice(0, 3).map((task) => ({
+        id: task.id || "unknown",
+        title: task.title || "Tâche sans titre",
+        type: task.type || "task",
+        priority: task.priority || "medium",
+      })),
     },
   ];
+
+  // 🔴 CORRECTION: Vérifier si currentWorkspace existe
+  if (!currentWorkspace) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-6 text-center">
+          <p className="text-gray-500 dark:text-zinc-400">
+            Aucun espace de travail sélectionné
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔴 CORRECTION: Vérifier si currentWorkspace.projects existe
+  if (!currentWorkspace.projects || currentWorkspace.projects.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-6 text-center">
+          <p className="text-gray-500 dark:text-zinc-400">
+            Aucun projet dans cet espace de travail
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -74,7 +133,7 @@ export default function TasksSummary() {
           <div className="p-4">
             {card.items.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-zinc-400 text-center py-4">
-                {card.title.toLowerCase()}
+                Aucune tâche
               </p>
             ) : (
               <div className="space-y-3">
@@ -93,7 +152,7 @@ export default function TasksSummary() {
                 ))}
                 {card.count > 3 && (
                   <button className="flex items-center justify-center w-full text-sm text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white mt-2">
-                    Jery {card.count - 3} Fanampiny{" "}
+                    Voir {card.count - 3} de plus{" "}
                     <ArrowRight className="w-3 h-3 ml-2" />
                   </button>
                 )}

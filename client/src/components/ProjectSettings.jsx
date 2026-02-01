@@ -29,7 +29,7 @@ export default function ProjectSettings({ project }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    toast.loading("Mise à jour en cours...");
+    toast.loading("Eo ampanovana...");
     try {
       // FIX: Chemin API correct avec projectId en paramètre + le / au début
       console.log("📝 Envoi update project...");
@@ -65,7 +65,16 @@ export default function ProjectSettings({ project }) {
   };
 
   useEffect(() => {
-    if (project) setFormData(project);
+    if (project) {
+      const formattedProject = {
+        ...project,
+        start_date: project.start_date
+          ? new Date(project.start_date)
+          : new Date(),
+        end_date: project.end_date ? new Date(project.end_date) : new Date(),
+      };
+      setFormData(formattedProject);
+    }
   }, [project]);
 
   const inputClasses =
@@ -150,7 +159,11 @@ export default function ProjectSettings({ project }) {
               <label className={labelClasses}>Daty Hanombohany</label>
               <input
                 type="date"
-                value={format(formData.start_date, "yyyy-MM-dd")}
+                value={
+                  formData.start_date
+                    ? format(formData.start_date, "yyyy-MM-dd")
+                    : ""
+                }
                 onChange={(e) =>
                   setFormData({
                     ...formData,
