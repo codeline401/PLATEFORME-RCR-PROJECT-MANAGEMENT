@@ -19,7 +19,12 @@ export default function CreateTaskDialog({
     (state) => state.workspace?.currentWorkspace || null,
   );
   const project = currentWorkspace?.projects.find((p) => p.id === projectId);
-  const teamMembers = project?.members || [];
+
+  // Récupérer tous les membres du projet avec leurs infos utilisateur
+  const teamMembers = project?.members?.length > 0 ? project.members : [];
+
+  console.log("🔍 Project:", project);
+  console.log("🔍 Team Members:", teamMembers);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -147,13 +152,18 @@ export default function CreateTaskDialog({
                   setFormData({ ...formData, assigneeId: e.target.value })
                 }
                 className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1"
+                required
               >
                 <option value="">Tsy omena olona</option>
-                {teamMembers.map((member) => (
-                  <option key={member?.user.id} value={member?.user.id}>
-                    {member?.user.email}
-                  </option>
-                ))}
+                {teamMembers && teamMembers.length > 0 ? (
+                  teamMembers.map((member) => (
+                    <option key={member?.user?.id} value={member?.user?.id}>
+                      {member?.user?.name || member?.user?.email}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>Tsy misy mpikambana</option>
+                )}
               </select>
             </div>
 
