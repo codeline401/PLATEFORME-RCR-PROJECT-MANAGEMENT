@@ -113,45 +113,50 @@ export const createProject = async (req, res) => {
     // ========== 6. AJOUT DES MEMBRES (OPTIONNEL) ==========
     console.log("📝 STEP 6: Ajout des membres du projet");
 
+    // Toujours ajouter le team_lead comme membre
+    const memberIds = [finalTeamLead];
+    console.log(`  ✓ Team lead (${finalTeamLead}) sera ajouté comme membre`);
+
     if (team_members && team_members.length > 0) {
-      console.log(`  ${team_members.length} membres à ajouter`);
+      console.log(`  ${team_members.length} membres additionnels à ajouter`);
 
       // Mapper les emails fournis aux IDs des utilisateurs du workspace
-      const memberIds = [];
       for (const memberEmail of team_members) {
         const member = workspace.members.find(
           (m) => m.user.email === memberEmail,
         );
-        if (member) {
+        if (member && !memberIds.includes(member.user.id)) {
           memberIds.push(member.user.id);
           console.log(`    ✓ Membre trouvé: ${memberEmail}`);
+        } else if (memberIds.includes(member?.user?.id)) {
+          console.log(
+            `    ℹ️  ${memberEmail} est déjà dans la liste (team_lead)`,
+          );
         } else {
           console.log(
             `    ⚠️  Membre non trouvé dans le workspace: ${memberEmail}`,
           );
         }
       }
+    }
 
-      // Créer les ProjectMembers
-      if (memberIds.length > 0) {
-        try {
-          const result = await prisma.projectMember.createMany({
-            data: memberIds.map((userId) => ({
-              projectId: project.id,
-              userId,
-            })),
-            skipDuplicates: true,
-          });
-          console.log(`  ✓ ${result.count} membres ajoutés au project`);
-        } catch (memberError) {
-          console.warn(
-            `  ⚠️  Erreur lors de l'ajout des membres:`,
-            memberError.message,
-          );
-          // On continue quand même - le project a été créé
-        }
-      } else {
-        console.log(`  ℹ️  Aucun membre valide trouvé à ajouter`);
+    // Créer les ProjectMembers
+    if (memberIds.length > 0) {
+      try {
+        const result = await prisma.projectMember.createMany({
+          data: memberIds.map((userId) => ({
+            projectId: project.id,
+            userId,
+          })),
+          skipDuplicates: true,
+        });
+        console.log(`  ✓ ${result.count} membres ajoutés au project`);
+      } catch (memberError) {
+        console.warn(
+          `  ⚠️  Erreur lors de l'ajout des membres:`,
+          memberError.message,
+        );
+        // On continue quand même - le project a été créé
       }
     } else {
       console.log(`  ℹ️  Aucun membre à ajouter`);
@@ -159,11 +164,22 @@ export const createProject = async (req, res) => {
 
     // ========== 7. RÉPONSE SUCCÈS ==========
     console.log("📝 STEP 7: Envoi de la réponse");
+    
+    // Récupérer le projet avec tous ses membres
+    const projectWithMembers = await prisma.project.findUnique({
+      where: { id: project.id },
+      include: {
+        members: {
+          include: { user: true },
+        },
+      },
+    });
+    
     console.log(`  ✅ SUCCESS - Project créé avec ID: ${project.id}`);
 
     return res.status(201).json({
       success: true,
-      project,
+      project: projectWithMembers,
       message: "Tetikasa voaforina soa aman-tsara",
     });
   } catch (error) {
