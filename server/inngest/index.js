@@ -129,14 +129,40 @@ const syncWorkSpaceMemberCreation = inngest.createFunction(
   { event: "clerk/organizationInvitation.accepted" },
   async ({ event }) => {
     const { data } = event;
-    console.log("Workspace member created:", data);
-    await prisma.workspaceMember.create({
-      data: {
-        userId: data.user_id,
-        workspaceId: data.organization_id,
-        role: String(data.role_name).toUpperCase() || "MPIKAMBANA",
-      },
+    console.log("🔍 Workspace member invitation accepted:", {
+      user_id: data.user_id,
+      organization_id: data.organization_id,
+      role_name: data.role_name,
+      fullData: data,
     });
+
+    try {
+      // Vérifier si la relation n'existe pas déjà
+      const existingMember = await prisma.workspaceMember.findFirst({
+        where: {
+          userId: data.user_id,
+          workspaceId: data.organization_id,
+        },
+      });
+
+      if (existingMember) {
+        console.log("✅ WorkspaceMember already exists, skipping creation");
+        return;
+      }
+
+      const newMember = await prisma.workspaceMember.create({
+        data: {
+          userId: data.user_id,
+          workspaceId: data.organization_id,
+          role: String(data.role_name).toUpperCase() || "MPIKAMBANA",
+        },
+      });
+
+      console.log("✅ WorkspaceMember created successfully:", newMember);
+    } catch (error) {
+      console.error("❌ Error creating workspace member:", error);
+      throw error;
+    }
   },
 );
 

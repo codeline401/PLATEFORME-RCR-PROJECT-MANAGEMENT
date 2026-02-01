@@ -15,6 +15,7 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const location = useLocation();
 
   const { loading, workspaces } = useSelector((state) => state.workspace);
@@ -37,6 +38,7 @@ const Layout = () => {
    * - on récupère le TOKEN ici
    * - on passe le token (string) au thunk Redux
    * - on recharge aussi quand on arrive sur /dashboard (invitation link)
+   * - on retry plusieurs fois si on est sur /dashboard et aucun workspace
    */
   useEffect(() => {
     const loadWorkspaces = async () => {
@@ -46,8 +48,21 @@ const Layout = () => {
       dispatch(fetchWorkspaces(token));
     };
 
+    // Charge immédiatement si workspaces vides ou sur /dashboard
     if (workspaces.length === 0 || location.pathname === "/dashboard") {
       loadWorkspaces();
+
+      // Si on est sur /dashboard et pas de workspaces, retry après 2 secondes
+      if (
+        location.pathname === "/dashboard" &&
+        workspaces.length === 0 &&
+        retryCount < 3
+      ) {
+        const timer = setTimeout(() => {
+          setRetryCount((prev) => prev + 1);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [
     isLoaded,
@@ -56,6 +71,7 @@ const Layout = () => {
     dispatch,
     getToken,
     location.pathname,
+    retryCount,
   ]);
 
   /**
