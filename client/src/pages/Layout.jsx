@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { Outlet, useLocation } from "react-router-dom";
@@ -15,8 +15,9 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const location = useLocation();
+  const hasLoadedRef = useRef(false);
+  const dashboardRetryRef = useRef(0);
 
   const { loading, workspaces } = useSelector((state) => state.workspace);
   const dispatch = useDispatch();
@@ -37,8 +38,8 @@ const Layout = () => {
    * - on attend que Clerk soit chargé
    * - on récupère le TOKEN ici
    * - on passe le token (string) au thunk Redux
-   * - on recharge aussi quand on arrive sur /dashboard (invitation link)
-   * - on retry plusieurs fois si on est sur /dashboard et aucun workspace
+   * - on recharge SEULEMENT une fois au chargement initial
+   * - on ne recharge PAS à chaque changement de pathname
    */
   useEffect(() => {
     const loadWorkspaces = async () => {
@@ -46,33 +47,14 @@ const Layout = () => {
 
       const token = await getToken(); // 🔐 token Clerk valide
       dispatch(fetchWorkspaces(token));
+      hasLoadedRef.current = true;
     };
 
-    // Charge immédiatement si workspaces vides ou sur /dashboard
-    if (workspaces.length === 0 || location.pathname === "/dashboard") {
+    // Charge SEULEMENT si jamais chargé
+    if (!hasLoadedRef.current && isLoaded && user) {
       loadWorkspaces();
-
-      // Si on est sur /dashboard et pas de workspaces, retry après 2 secondes
-      if (
-        location.pathname === "/dashboard" &&
-        workspaces.length === 0 &&
-        retryCount < 3
-      ) {
-        const timer = setTimeout(() => {
-          setRetryCount((prev) => prev + 1);
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
     }
-  }, [
-    isLoaded,
-    user,
-    workspaces.length,
-    dispatch,
-    getToken,
-    location.pathname,
-    retryCount,
-  ]);
+  }, [isLoaded, user, dispatch, getToken]);
 
   /**
    * 🔹 Utilisateur non connecté
