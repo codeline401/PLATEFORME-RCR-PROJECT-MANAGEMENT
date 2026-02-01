@@ -23,7 +23,7 @@ export default function ProjectDetail() {
 
   const navigate = useNavigate();
   const projects = useSelector(
-    (state) => state?.workspace?.currentWorkspace?.projects || []
+    (state) => state?.workspace?.currentWorkspace?.projects || [],
   );
 
   const [project, setProject] = useState(null);
@@ -104,24 +104,24 @@ export default function ProjectDetail() {
       <div className="grid grid-cols-2 sm:flex flex-wrap gap-6">
         {[
           {
-            label: "Total Tasks",
+            label: "Totalin'ny Asa",
             value: tasks.length,
             color: "text-zinc-900 dark:text-white",
           },
           {
-            label: "Completed",
+            label: "Vita",
             value: tasks.filter((t) => t.status === "DONE").length,
             color: "text-emerald-700 dark:text-emerald-400",
           },
           {
-            label: "In Progress",
+            label: "Efa Mandeha",
             value: tasks.filter(
-              (t) => t.status === "IN_PROGRESS" || t.status === "TODO"
+              (t) => t.status === "IN_PROGRESS" || t.status === "TODO",
             ).length,
             color: "text-amber-700 dark:text-amber-400",
           },
           {
-            label: "Team Members",
+            label: "Mpikambana ao amin'ny Ekipa",
             value: project.members?.length || 0,
             color: "text-blue-700 dark:text-blue-400",
           },
@@ -147,10 +147,10 @@ export default function ProjectDetail() {
       <div>
         <div className="inline-flex flex-wrap max-sm:grid grid-cols-3 gap-2 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
           {[
-            { key: "tasks", label: "Tasks", icon: FileStackIcon },
-            { key: "calendar", label: "Calendar", icon: CalendarIcon },
+            { key: "tasks", label: "Asa", icon: FileStackIcon },
+            { key: "calendar", label: "Tetiandro", icon: CalendarIcon },
             { key: "analytics", label: "Analytics", icon: BarChart3Icon },
-            { key: "settings", label: "Settings", icon: SettingsIcon },
+            { key: "settings", label: "Hikirakira", icon: SettingsIcon },
           ].map((tabItem) => (
             <button
               key={tabItem.key}
