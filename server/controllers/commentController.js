@@ -1,3 +1,5 @@
+import prisma from "../configs/prisma.js";
+
 // Add Comments
 export const addComment = async (req, res) => {
   try {
