@@ -19,6 +19,13 @@ export const createTask = async (req, res) => {
 
     const origin = req.get("origin"); // get origin from request headers
 
+    // Validate required fields
+    if (!projectId || !title || !assigneeId) {
+      return res.status(400).json({
+        message: "projectId, title, et assigneeId sont obligatoires",
+      });
+    }
+
     // Check if user has admin role for project
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -27,10 +34,12 @@ export const createTask = async (req, res) => {
 
     if (!project) {
       // check if project exists
-      res.status(404).json({ message: "Tsy misy na tsy hita io Tekikasa io" });
+      return res
+        .status(404)
+        .json({ message: "Tsy misy na tsy hita io Tekikasa io" });
     } else if (project.team_lead !== userId) {
       // check if user is team lead
-      res.status(403).json({
+      return res.status(403).json({
         message: "Tsy manana alalana ianao hanampy Asa ao amin'io Tetikasa io",
       });
     } else if (
@@ -38,7 +47,7 @@ export const createTask = async (req, res) => {
       !project.members.some((m) => m.userId === assigneeId)
     ) {
       // check if assignee is a member of the project
-      res.status(400).json({
+      return res.status(400).json({
         message:
           "Tsy mpikambana ao amin'io Tetikasa io na tsy ao anaty Tranon'Asa ny olona asaina",
       });
@@ -90,7 +99,8 @@ export const updateTask = async (req, res) => {
       where: { id: req.params.id },
     });
 
-    if (!task) {
+    if (!project) {
+      // check if project exists
       return res
         .status(404)
         .json({ message: "Tsy hita na Tsy misy io Asa io" });
@@ -98,17 +108,19 @@ export const updateTask = async (req, res) => {
     const { userId } = await req.auth; // get userId from auth middleware
 
     // Check if user has admin role for project
-    const project = await prisma.project.findUnique({
+    const project2 = await prisma.project.findUnique({
       where: { id: task.projectId },
       include: { members: { include: { user: true } } },
     });
 
-    if (!project) {
+    if (!project2) {
       // check if project exists
-      res.status(404).json({ message: "Tsy misy na tsy hita io Tekikasa io" });
-    } else if (project.team_lead !== userId) {
+      return res
+        .status(404)
+        .json({ message: "Tsy misy na tsy hita io Tekikasa io" });
+    } else if (project2.team_lead !== userId) {
       // check if user is team lead
-      res.status(403).json({
+      return res.status(403).json({
         message: "Tsy manana alalana ianao hanampy Asa ao amin'io Tetikasa io",
       });
     }
@@ -156,10 +168,12 @@ export const deleteTask = async (req, res) => {
 
     if (!project) {
       // check if project exists
-      res.status(404).json({ message: "Tsy misy na tsy hita io Tekikasa io" });
+      return res
+        .status(404)
+        .json({ message: "Tsy misy na tsy hita io Tekikasa io" });
     } else if (project.team_lead !== userId) {
       // check if user is team lead
-      res.status(403).json({
+      return res.status(403).json({
         message:
           "Tsy manana alalana ianao hanampy Asa ao amin'io Tetikasa io ianao",
       });
