@@ -9,14 +9,14 @@ const Team = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [users, setUsers] = useState([]);
   const currentWorkspace = useSelector(
-    (state) => state?.workspace?.currentWorkspace || null
+    (state) => state?.workspace?.currentWorkspace || null,
   );
   const projects = currentWorkspace?.projects || [];
 
   const filteredUsers = users.filter(
     (user) =>
       user?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user?.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      user?.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   useEffect(() => {
@@ -24,8 +24,8 @@ const Team = () => {
     setTasks(
       currentWorkspace?.projects?.reduce(
         (acc, project) => [...acc, ...project.tasks],
-        []
-      ) || []
+        [],
+      ) || [],
     );
   }, [currentWorkspace]);
 
@@ -83,7 +83,7 @@ const Team = () => {
               <p className="text-xl font-bold text-gray-900 dark:text-white">
                 {
                   projects.filter(
-                    (p) => p.status !== "CANCELLED" && p.status !== "COMPLETED"
+                    (p) => p.status !== "CANCELLED" && p.status !== "COMPLETED",
                   ).length
                 }
               </p>
@@ -116,7 +116,7 @@ const Team = () => {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-400 size-3" />
         <input
-          placeholder="Search team members..."
+          placeholder="Nangilana mpikambana..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-8 w-full text-sm rounded-md border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 py-2 focus:outline-none focus:border-blue-500"
@@ -132,13 +132,13 @@ const Team = () => {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {users.length === 0
-                ? "No team members yet"
-                : "No members match your search"}
+                ? "Tsy misy mpikambana eto"
+                : "Tsy misy mpikambana mifanaraka amin'ny sarinao"}
             </h3>
             <p className="text-gray-500 dark:text-zinc-400 mb-6">
               {users.length === 0
-                ? "Invite team members to start collaborating"
-                : "Try adjusting your search term"}
+                ? "Asao ny mpikambana mba hampiasa ny fikambanana"
+                : "Ataovy hafa ny sarinao"}
             </p>
           </div>
         ) : (

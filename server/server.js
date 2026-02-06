@@ -11,6 +11,7 @@ import workspaceRouter from "./routes/workspaceRoute.js";
 import projectRouter from "./routes/projectRoute.js";
 import taskRouter from "./routes/taskRoute.js";
 import commentRouter from "./routes/commentRoute.js";
+import contactRouter from "./routes/contactRoute.js";
 import { protect } from "./middlewares/authMiddlewares.js";
 
 const app = express(); // create an express application
@@ -29,6 +30,7 @@ app.use("/api/workspaces", protect, workspaceRouter); // use workspace routes
 app.use("/api/projects", protect, projectRouter); // use project routes
 app.use("/api/tasks", protect, taskRouter); // use task routes
 app.use("/api/comments", protect, commentRouter); // use comment routes
+app.use("/api/contact", contactRouter); // use contact routes (pas protégé - pour les guests)
 
 const PORT = process.env.PORT || 5000; // get port from environment or use 5000
 

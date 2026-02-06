@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import Footer from "../components/Footer";
 import { Outlet } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loadTheme } from "../features/themeSlice";
@@ -91,22 +92,31 @@ const Layout = () => {
    * 🔹 Layout principal
    */
   return (
-    <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
-      <Sidebar
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-      />
-
-      <div className="flex-1 flex flex-col h-screen">
-        <Navbar
+    <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
+      <div className="flex flex-1">
+        {/* 🔹 Sidebar */}
+        <Sidebar
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <div className="flex-1 h-full p-6 xl:p-10 xl:px-16 overflow-y-scroll">
-          <Outlet />
+        {/* 🔹 Contenu principal */}
+        <div className="flex-1 flex flex-col">
+          {/* 🔹 Navbar */}
+          <Navbar
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+          />
+
+          {/* 🔹 Content Area */}
+          <div className="flex-1 p-6 xl:p-10 xl:px-16 overflow-y-scroll">
+            <Outlet />
+          </div>
         </div>
       </div>
+
+      {/* 🔹 Footer */}
+      <Footer />
     </div>
   );
 };

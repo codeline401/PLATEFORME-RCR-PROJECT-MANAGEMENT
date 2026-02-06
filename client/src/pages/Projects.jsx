@@ -6,7 +6,7 @@ import CreateProjectDialog from "../components/CreateProjectDialog";
 
 export default function Projects() {
   const projects = useSelector(
-    (state) => state?.workspace?.currentWorkspace?.projects || []
+    (state) => state?.workspace?.currentWorkspace?.projects || [],
   );
 
   const [filteredProjects, setFilteredProjects] = useState([]);
@@ -25,19 +25,19 @@ export default function Projects() {
       filtered = filtered.filter(
         (project) =>
           project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+          project.description?.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
     if (filters.status !== "ALL") {
       filtered = filtered.filter(
-        (project) => project.status === filters.status
+        (project) => project.status === filters.status,
       );
     }
 
     if (filters.priority !== "ALL") {
       filtered = filtered.filter(
-        (project) => project.priority === filters.priority
+        (project) => project.priority === filters.priority,
       );
     }
 
