@@ -205,3 +205,20 @@ export default function ProjectDetail() {
     </div>
   );
 }
+
+// TODO
+// - Add project description in the header
+// - Add Ressources needed for the project :
+// - Participation feature from user, guest,
+// - Confirmation bouton within participation ressources
+// - Send email to project (lead, creator) when someone filled his participation form
+
+// - Add objectif section
+// - Add results section
+// - Add Risk section
+// - Facteur clé || élément déclencheur
+
+// - Add Stat foeach Task
+// - Recup taskStat to update Project Stat in real time
+
+// - Add discussion section for each project

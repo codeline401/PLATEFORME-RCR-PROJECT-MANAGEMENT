@@ -230,7 +230,7 @@ const LandingPage = () => {
                   style={{ animationDelay: "0.5s" }}
                 >
                   <p className="text-xs text-slate-500">
-                    ✨ Interface réelle de votre dashboard T.OLO.N.A
+                    ✨ Interface réelle de votre dashboard RCR / T.OLO.N.A
                   </p>
                 </div>
               </div>

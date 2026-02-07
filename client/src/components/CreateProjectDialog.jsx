@@ -296,4 +296,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
   );
 };
 
+// - TODO
+// - Possibility to create Project without lead (lead can be added later)
+
 export default CreateProjectDialog;

@@ -235,7 +235,6 @@ const TaskDetails = () => {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 };

@@ -121,4 +121,8 @@ function WorkspaceDropdown() {
   );
 }
 
+// TODO
+// - Add workspace for everyone
+// - This workspace become the default dashboard for everyone
+
 export default WorkspaceDropdown;
