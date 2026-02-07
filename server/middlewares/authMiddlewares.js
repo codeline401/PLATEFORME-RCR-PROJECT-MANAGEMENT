@@ -16,7 +16,7 @@ export const protect = (req, res, next) => {
     // ✅ Stocker le userId dans req pour les controllers
     req.userId = userId;
 
-    next();
+    next(); // Passer au middleware suivant ou au controller
   } catch (error) {
     console.error("❌ Auth middleware error:", error.message);
     return res.status(401).json({

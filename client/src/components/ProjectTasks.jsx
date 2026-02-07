@@ -49,6 +49,8 @@ const ProjectTasks = ({ tasks }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [selectedTasks, setSelectedTasks] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [filters, setFilters] = useState({
     status: "",
@@ -104,28 +106,36 @@ const ProjectTasks = ({ tasks }) => {
   };
 
   const handleDelete = async () => {
+    if (selectedTasks.length === 0) {
+      toast.error("Mifidiana Asa iray na maromaro ho fafana aloha");
+      return;
+    }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
     try {
-      const confirm = window.confirm(
-        "Ho fafana marina ve io Asa nofidinao io ?",
-      );
-      if (!confirm) return;
+      setIsDeleting(true);
       const token = await getToken();
 
-      toast.loading("Deleting tasks...");
+      toast.loading("Eo ampamafana ilay asa...");
 
-      await api.post(
-        "/api/tasks/delete",
-        { taskIds: selectedTasks },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await api.delete("/api/tasks/delete", {
+        data: { taskIds: selectedTasks },
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       dispatch(deleteTask(selectedTasks));
+      setSelectedTasks([]);
+      setShowDeleteConfirm(false);
 
       toast.dismissAll();
-      toast.success("Tasks deleted successfully");
+      toast.success("Asa voafafa soa aman-tsara");
     } catch (error) {
       toast.dismissAll();
       toast.error(error?.response?.data?.message || error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -214,11 +224,14 @@ const ProjectTasks = ({ tasks }) => {
                   <th className="pl-2 pr-1">
                     <input
                       onChange={() =>
-                        selectedTasks.length > 1
+                        selectedTasks.length === filteredTasks.length
                           ? setSelectedTasks([])
-                          : setSelectedTasks(tasks.map((t) => t.id))
+                          : setSelectedTasks(filteredTasks.map((t) => t.id))
                       }
-                      checked={selectedTasks.length === tasks.length}
+                      checked={
+                        selectedTasks.length === filteredTasks.length &&
+                        filteredTasks.length > 0
+                      }
                       type="checkbox"
                       className="size-3 accent-zinc-600 dark:accent-zinc-500"
                     />
@@ -417,6 +430,46 @@ const ProjectTasks = ({ tasks }) => {
           </div>
         </div>
       </div>
+
+      {/* Modern Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-200">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+              Hamafa ilay asa
+            </h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+              Ho fafana marina ve io asa - {selectedTasks.length} - nofidinao
+              io? Tsy mety averina intsony io raha voafafa
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Tsia
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white font-medium hover:from-red-600 hover:to-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Ampamafana...
+                  </>
+                ) : (
+                  <>
+                    <Trash className="size-4" /> Eny
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

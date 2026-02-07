@@ -21,14 +21,22 @@ const SignUp = () => {
     mpikambana: "", // Efa Mpikambana RCR ve ? (OUI/NON)
   });
 
+  // emails des admins qui gère les inscriptions guests
+  const adminEmails = [
+    "f6randrianarivony@gmail.com",
+    "rijarantoanina444@gmail.com",
+  ];
+
   /**
    * 🔹 Gestion du changement de champs
    */
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    // Gérer les changements pour tous les champs du formulaire
+    const { name, value } = e.target; // Récupérer le nom et la valeur du champ modifié
     setFormData((prev) => ({
-      ...prev,
-      [name]: value,
+      // Mettre à jour l'état du formulaire de manière dynamique
+      ...prev, // Conserver les autres champs inchangés
+      [name]: value, // Mettre à jour le champ modifié
     }));
   };
 
@@ -46,25 +54,26 @@ const SignUp = () => {
       !formData.antony.trim() ||
       !formData.mpikambana
     ) {
-      toast.error("Manompleto ny toerana rehetra");
-      return false;
+      toast.error("Mila fenoina avokoa izy rehetra");
+      return false; // Arrêter la validation si un champ est vide
     }
 
     // Valider le format de l'email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Regex basique pour valider les emails
     if (!emailRegex.test(formData.email.trim())) {
-      toast.error("Email tsy mety");
-      return false;
+      // Trim pour éviter les espaces avant/après
+      toast.error("Tsy mety io adiresy mailaka io");
+      return false; // Arrêter la validation si l'email est invalide
     }
 
     // Valider le numéro WhatsApp (format basique)
-    const whatsappRegex = /^[\d+\-\s]{10,20}$/;
+    const whatsappRegex = /^[\d+\-\s]{10,20}$/; // Accepte les chiffres, +, -, espaces, et une longueur de 10 à 20 caractères
     if (!whatsappRegex.test(formData.whatsapp.trim())) {
-      toast.error("Numéro WhatsApp tsy mety");
-      return false;
+      toast.error("Tsy mety io nomerao WhatsApp io");
+      return false; // Arrêter la validation si le numéro WhatsApp est invalide
     }
 
-    return true;
+    return true; // Tous les champs sont valides, continuer la soumission
   };
 
   /**
@@ -84,18 +93,20 @@ const SignUp = () => {
       // 📧 Envoyer les données au backend
       const response = await api.post("/api/contact/send-guest-form", {
         ...formData,
-        recipientEmail: "f6randrianarivony@gmail.com", // L'email qui recevra les données
+        recipientEmail: adminEmails.join(","), // Envoyer à tous les admins, séparés par des virgules
       });
 
       // ✅ Si succès, afficher la modale de confirmation
       if (response.status === 200 || response.status === 201) {
-        setShowModal(true);
+        // Accepter aussi 201 Created
+        setShowModal(true); // Afficher la modale de confirmation
       }
     } catch (error) {
       // ❌ Gestion des erreurs
       console.error("Erreur lors de l'envoi:", error);
       toast.error(
-        error.response?.data?.message || "Diso ny fampitana, andao averina",
+        error.response?.data?.message ||
+          "Nisy zavatra tsy nety tamin'ny fandefasana ilay fangatahana, andramo averina hoe azafady",
       );
     } finally {
       setIsLoading(false);
@@ -153,7 +164,7 @@ const SignUp = () => {
               Lihana ny amin'ny RCR / T.OLO.N.A
             </h1>
             <p className="text-xl text-slate-300">
-              Ampidiro ny mombanao dia andao hiasa miaraka
+              Ampidiro eto ny mombanao dia andao hiara-hiasa
             </p>
           </div>
 
@@ -180,7 +191,7 @@ const SignUp = () => {
             {/* 🔹 Champ 2: Email */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Email *
+                Mailaka *
               </label>
               <input
                 type="email"
@@ -210,7 +221,7 @@ const SignUp = () => {
             {/* 🔹 Champ 4: Distrika */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Distrika hipetrahana *
+                Distrika Hipetrahana *
               </label>
               <input
                 type="text"
@@ -240,7 +251,7 @@ const SignUp = () => {
             {/* 🔹 Champ 6: Antony Hitsidihana */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Antony Hitsidihana ny Pejy *
+                Antony Fangatahana *
               </label>
               <textarea
                 name="antony"
@@ -326,7 +337,7 @@ const SignUp = () => {
 
             {/* 🔹 Titre de succès */}
             <h2 className="text-2xl font-bold text-white mb-4">
-              Efa Voaray ny Fangatahanao
+              Voaray ny Fangatahanao
             </h2>
 
             {/* 🔹 Message principal */}

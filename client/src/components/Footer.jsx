@@ -18,7 +18,7 @@ const Footer = () => {
               <span className="font-bold text-slate-300">T.OLO.N.A</span>
             </div>
             <p className="text-sm text-slate-400">
-              Plateforme de gestion pour le Parti RCR / TOLONA
+              Plateforme de gestion de projets pour le Parti RCR / T.OLO.N.A
             </p>
           </div>
 
