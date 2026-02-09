@@ -6,6 +6,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PulbicAccessLevel {
+    PRIVATE     // Seuls les membres voient les projets
+    PUBLIC      // Tout le monde voit les projets (lecture seule)
+}
+
 enum WorkspaceRole {
     ADMIN
     MEMBER
@@ -61,6 +66,7 @@ model Workspace {
     name        String
     slug        String   @unique
     description String?
+    isPublic    PulbicAccessLevel @default(PUBLIC) // public par défaut
     settings    Json     @default("{}")
     ownerId     String
     createdAt   DateTime @default(now())
@@ -90,6 +96,7 @@ model Project {
     description String?
     priority    Priority        @default(MEDIUM)
     status      ProjectStatus   @default(ACTIVE)
+    isPublic    Boolean         @default(true) // Public par défaut
     start_date  DateTime?
     end_date    DateTime?
     team_lead   String

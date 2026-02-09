@@ -9,13 +9,15 @@ import {
   LayoutDashboardIcon,
   SettingsIcon,
   UsersIcon,
+  Globe,
 } from "lucide-react";
 
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const { openUserProfile } = useClerk();
   const menuItems = [
-    { name: "Tableau de bord", href: "/", icon: LayoutDashboardIcon },
-    { name: "Tetikasa", href: "/projects", icon: FolderOpenIcon },
+    { name: "Accueil", href: "/", icon: LayoutDashboardIcon },
+    { name: "Tetikasa Anatiny", href: "/projects", icon: FolderOpenIcon },
+    { name: "Tetikasa Ivelany", href: "/publicProjects", icon: Globe },
     { name: "Ekipa", href: "/team", icon: UsersIcon },
   ];
 

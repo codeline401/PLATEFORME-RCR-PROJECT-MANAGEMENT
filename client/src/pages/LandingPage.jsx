@@ -22,7 +22,7 @@ const LandingPage = () => {
         toast.dismiss(toastIdRef.current);
       }
 
-      // Rediriger si authentifié
+      // Rediriger si authentifié vers le dashboard protégé
       if (isSignedIn) {
         navigate("/dashboard");
       }
@@ -108,6 +108,12 @@ const LandingPage = () => {
                 className="px-8 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 font-semibold flex items-center justify-center gap-2 transition"
               >
                 'Ndao Atomboka <ArrowRight size={20} />
+              </a>
+              <a
+                href="/explore/projects"
+                className="px-8 py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 font-semibold flex items-center justify-center gap-2 transition"
+              >
+                Jereo ny Tetikasa Ivelany <ArrowRight size={20} />
               </a>
               <a
                 href="#features"

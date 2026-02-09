@@ -23,6 +23,7 @@ export const createProject = async (req, res) => {
       team_lead,
       progress,
       priority,
+      isPublic = true,
     } = req.body;
 
     // Validation des champs obligatoires
@@ -104,6 +105,7 @@ export const createProject = async (req, res) => {
         end_date: end_date ? new Date(end_date) : null,
         progress: progress || 0,
         priority: priority || "MEDIUM",
+        isPublic: isPublic !== false, // true par défaut
         team_lead: finalTeamLead, // ✅ Utiliser team_lead (String), pas owner (relation)
       },
     });
@@ -164,7 +166,7 @@ export const createProject = async (req, res) => {
 
     // ========== 7. RÉPONSE SUCCÈS ==========
     console.log("📝 STEP 7: Envoi de la réponse");
-    
+
     // Récupérer le projet avec tous ses membres
     const projectWithMembers = await prisma.project.findUnique({
       where: { id: project.id },
@@ -174,7 +176,7 @@ export const createProject = async (req, res) => {
         },
       },
     });
-    
+
     console.log(`  ✅ SUCCESS - Project créé avec ID: ${project.id}`);
 
     return res.status(201).json({
@@ -216,6 +218,14 @@ export const updateProject = async (req, res) => {
 
     const { projectId } = req.params; // Get projectId from URL params
 
+    // vérifier les permissions (ulitiser le middleware)
+    if (!req.permissions?.canWrite) {
+      return res.status(403).json({
+        message:
+          "Tsy Mety: Ny Mpandrindra ihany no afaka mitondra fanovàna ny tetikasa.",
+      });
+    }
+
     const {
       workspaceId,
       description,
@@ -226,6 +236,7 @@ export const updateProject = async (req, res) => {
       progress,
       priority,
       team_lead,
+      isPublic,
     } = req.body; // get project details from request body
 
     // Check if user has admin role for workspace
@@ -275,6 +286,7 @@ export const updateProject = async (req, res) => {
         end_date: end_date ? new Date(end_date) : null,
         progress,
         priority,
+        isPublic: typeof isPublic === "boolean" ? isPublic : undefined,
       },
     });
 
@@ -353,5 +365,75 @@ export const addMemberToProject = async (req, res) => {
   } catch (error) {
     console.error("Error adding member to project:", error);
     res.status(500).json({ message: error.code || error.message });
+  }
+};
+
+// GET - Lecture pour tous (avec permissions)
+export const getProject = async (req, res) => {
+  try {
+    const userId = req.userId; // FIX: Utiliser req.userId au lieu de req.auth.userId
+    const { workspaceId } = req.params; // Récupérer workspaceId depuis les paramètres de l'URL
+
+    // vérifier que le workspace existe & que l'utilisateur a accès
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: { members: true }, // Inclure les membres pour vérifier l'accès
+    });
+
+    if (!workspace) {
+      return res
+        .status(404)
+        .json({ message: "Tsy hita io tranon'Asa io na Tsy misy !!!" });
+    }
+
+    const isMember = workspace.members.some(
+      (member) => member.userId === userId,
+    ); // Vérifier si l'utilisateur est membre du workspace
+
+    // Si public, afficher les project publics même pour les non-membres
+    const filter = {
+      workspaceId,
+      ...(workspace.isPublic === "PUBLIC" && !isMember && { isPublic: true }), // Si workspace public et user non membre, filtrer pour n'afficher que les projets publics
+    };
+
+    const projects = await prisma.project.findMany({
+      where: filter, // Appliquer le filtre pour les projets publics si nécessaire
+      include: { owner: true, members: true }, // Inclure les données du propriétaire et des membres
+    });
+
+    res.json({ projects, message: "Tetikasa azo jerena" });
+  } catch (error) {
+    res.status(500).json({ message: error.code || error.message });
+  }
+};
+
+// Récupérer TOUS les projets publics de TOUS les workspaces
+export const getPublicProjects = async (req, res) => {
+  try {
+    console.log("📝 Fetching all public projects...");
+
+    const publicProjects = await prisma.project.findMany({
+      where: {
+        isPublic: true, // Seulement les projets publics
+      },
+      include: {
+        workspace: {
+          include: {
+            members: { include: { user: true } },
+            owner: true,
+          },
+        },
+        owner: true,
+        members: { include: { user: true } },
+        tasks: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    console.log(`✅ Found ${publicProjects.length} public projects`);
+    res.json(publicProjects);
+  } catch (error) {
+    console.error("❌ Error fetching public projects:", error.message);
+    res.status(500).json({ message: error.message });
   }
 };

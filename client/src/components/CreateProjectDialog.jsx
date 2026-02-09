@@ -23,6 +23,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     team_members: [],
     team_lead: "",
     progress: 0,
+    isPublic: false,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,6 +58,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         team_members: [],
         team_lead: "",
         progress: 0,
+        isPublic: false,
       });
 
       setIsDialogOpen(false);
@@ -272,6 +274,28 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 ))}
               </div>
             )}
+          </div>
+
+          {/*Public/Private Toggle*/}
+          <div className="flex items-center gap-3 p-3 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+            <input
+              type="checkbox"
+              id="isPublic"
+              checked={formData.isPublic}
+              onChange={(e) =>
+                setFormData({ ...formData, isPublic: e.target.checked })
+              }
+              className="w-4 h-4 rounded"
+            />
+            <label htmlFor="isPublic" className="text-sm cursor-pointer">
+              <span className="font-medium">
+                Atao Ho olon-drehetra (public)
+              </span>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Ireo tsy Mpikambana RCR / T.OLO.N.A dia hahita ity tetikasa ity
+                ihany koa
+              </p>
+            </label>
           </div>
 
           {/* Footer */}

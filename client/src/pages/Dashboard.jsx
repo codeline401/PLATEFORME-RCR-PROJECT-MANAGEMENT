@@ -55,4 +55,9 @@ const Dashboard = () => {
   );
 };
 
+// TODO
+// - Page d'accueil
+// - Information générale
+// - liste des project publics
+
 export default Dashboard;

@@ -239,4 +239,7 @@ const TaskDetails = () => {
   );
 };
 
+// - Add possibility to edit due date
+
+
 export default TaskDetails;

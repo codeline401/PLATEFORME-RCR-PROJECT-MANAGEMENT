@@ -21,6 +21,7 @@ export default function ProjectSettings({ project }) {
     start_date: "2025-09-10",
     end_date: "2025-10-15",
     progress: 30,
+    isPublic: false, // Ajout du champ isPublic pour gérer la visibilité du projet
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -205,6 +206,24 @@ export default function ProjectSettings({ project }) {
               }
               className="w-full accent-blue-500 dark:accent-blue-400"
             />
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+            <input
+              type="checkbox"
+              id="isPublic"
+              checked={formData.isPublic}
+              onChange={(e) =>
+                setFormData({ ...formData, isPublic: e.target.checked })
+              }
+              className="w-4 h-4 rounded"
+            />
+            <label htmlFor="isPublic" className="text-sm cursor-pointer">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                Ireo Tsy mpikambana RCR / T.OLO.N.A dia hahita ity tetikasa ity
+                ihany koa
+              </span>
+            </label>
           </div>
 
           {/* Save Button */}

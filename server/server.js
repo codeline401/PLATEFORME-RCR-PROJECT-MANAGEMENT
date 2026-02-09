@@ -13,6 +13,7 @@ import taskRouter from "./routes/taskRoute.js";
 import commentRouter from "./routes/commentRoute.js";
 import contactRouter from "./routes/contactRoute.js";
 import { protect } from "./middlewares/authMiddlewares.js";
+import { getPublicProjects } from "./controllers/projectController.js";
 
 const app = express(); // create an express application
 
@@ -31,6 +32,9 @@ app.use("/api/projects", protect, projectRouter); // use project routes
 app.use("/api/tasks", protect, taskRouter); // use task routes
 app.use("/api/comments", protect, commentRouter); // use comment routes
 app.use("/api/contact", contactRouter); // use contact routes (pas protégé - pour les guests)
+
+// Routes publiques (SANS authentification)
+app.get("/api/public/projects/all", getPublicProjects); // Récupérer tous les projets publics (pas d'auth req)
 
 const PORT = process.env.PORT || 5000; // get port from environment or use 5000
 

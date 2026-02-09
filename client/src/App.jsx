@@ -7,6 +7,8 @@ import Projects from "./pages/Projects";
 import Team from "./pages/Team";
 import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
+import PublicProjectsPage from "./pages/PublicProjectsPage";
+import PublicProjectsList from "./pages/PublicProjectsList";
 import SignIn from "./components/SignIn";
 import SignUp from "./components/SignUp";
 
@@ -18,6 +20,9 @@ const App = () => {
         {/* 🔹 Page d'accueil pour les guests */}
         <Route path="/" element={<LandingPage />} />
 
+        {/* 🔹 Page publique des projets (accessible sans auth) */}
+        <Route path="/explore/projects" element={<PublicProjectsPage />} />
+
         {/* 🔹 Routes d'authentification */}
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/sign-up" element={<SignUp />} />
@@ -28,8 +33,10 @@ const App = () => {
         </Route>
 
         <Route path="/" element={<Layout />}>
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="team" element={<Team />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="publicProjects" element={<PublicProjectsList />} />
           <Route path="projectsDetail" element={<ProjectDetails />} />
           <Route path="taskDetails" element={<TaskDetails />} />
         </Route>
