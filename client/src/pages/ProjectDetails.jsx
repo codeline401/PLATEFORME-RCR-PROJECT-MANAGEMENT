@@ -100,6 +100,18 @@ export default function ProjectDetail() {
         </button>
       </div>
 
+      {/* Description */}
+      <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        Famaritana
+      </label>
+      {project.description && (
+        <div className="p-4 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            {project.description}
+          </p>
+        </div>
+      )}
+
       {/* Info Cards */}
       <div className="grid grid-cols-2 sm:flex flex-wrap gap-6">
         {[
@@ -141,6 +153,113 @@ export default function ProjectDetail() {
             <ZapIcon className={`size-4 ${card.color}`} />
           </div>
         ))}
+      </div>
+
+      {/* Resources Section */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Ressources Matérielles */}
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
+          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
+            Fitaovana Ilaina
+          </h3>
+          {project.materialResources?.length > 0 ? (
+            <ul className="space-y-2">
+              {project.materialResources.map((res) => (
+                <li
+                  key={res.id}
+                  className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
+                >
+                  <span className="flex-1">{res.name}</span>
+                  <span className="text-zinc-500">
+                    {res.owned}/{res.needed}
+                  </span>
+                  <button className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white">
+                    Hanolotra
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-zinc-500">Tsy misy fitaovana ilaina</p>
+          )}
+        </div>
+
+        {/* Ressources Humaines */}
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
+          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
+            Olona Ilaina
+          </h3>
+          {project.humanResources?.length > 0 ? (
+            <ul className="space-y-2">
+              {project.humanResources.map((res) => (
+                <li
+                  key={res.id}
+                  className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
+                >
+                  <span className="flex-1">{res.name}</span>
+                  <button className="text-xs px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white">
+                    Handray anjara
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-zinc-500">Tsy misy olona ilaina</p>
+          )}
+        </div>
+
+        {/* Ressources Financières */}
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
+          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
+            Vola Ilaina
+          </h3>
+          {project.financialResources?.length > 0 ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Ilaina :</span>
+                <span>
+                  {project.financialResources
+                    .reduce((acc, r) => acc + r.amount, 0)
+                    .toLocaleString()}{" "}
+                  Ar
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Efa Hanana:</span>
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  {project.financialResources
+                    .reduce((acc, r) => acc + r.owned, 0)
+                    .toLocaleString()}{" "}
+                  Ar
+                </span>
+              </div>
+              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
+                <div
+                  className="bg-emerald-500 h-2 rounded-full"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (project.financialResources.reduce(
+                        (acc, r) => acc + r.owned,
+                        0,
+                      ) /
+                        project.financialResources.reduce(
+                          (acc, r) => acc + r.amount,
+                          0,
+                        )) *
+                        100 || 0,
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+              <button className="w-full mt-3 text-xs px-3 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-medium">
+                Hanohana ara-bola
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-500">Tsy misy vola ilaina</p>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -207,8 +326,8 @@ export default function ProjectDetail() {
 }
 
 // TODO
-// - Add project description in the header
-// - Add Ressources needed for the project :
+// - Add project description in the header - OK
+// - Add Ressources needed for the project : - OK
 // - Participation feature from user, guest,
 // - Confirmation bouton within participation ressources
 // - Send email to project (lead, creator) when someone filled his participation form

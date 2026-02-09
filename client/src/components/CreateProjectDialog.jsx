@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { XIcon } from "lucide-react";
+import { XIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useAuth } from "@clerk/clerk-react";
@@ -24,6 +24,10 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     team_lead: "",
     progress: 0,
     isPublic: false,
+    // Ressources
+    materialResources: [],
+    humanResources: [],
+    financialResources: { needed: 0, owned: 0 },
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +63,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         team_lead: "",
         progress: 0,
         isPublic: false,
+        materialResources: [],
+        humanResources: [],
+        financialResources: { needed: 0, owned: 0 },
       });
 
       setIsDialogOpen(false);
@@ -84,8 +91,8 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
   if (!isDialogOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur flex items-center justify-center text-left z-50">
-      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-lg text-zinc-900 dark:text-zinc-200 relative">
+    <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur flex items-center justify-center text-left z-50 p-4">
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-zinc-900 dark:text-zinc-200 relative">
         <button
           className="absolute top-3 right-3 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
           onClick={() => setIsDialogOpen(false)}
@@ -276,6 +283,182 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
             )}
           </div>
 
+          {/* Ressources Matérielles */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">
+                Fitaovana Ilaina
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    materialResources: [
+                      ...formData.materialResources,
+                      { name: "", needed: "", owned: "" },
+                    ],
+                  })
+                }
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusIcon className="size-3" /> Hanampy
+              </button>
+            </div>
+            {formData.materialResources.length === 0 && (
+              <p className="text-xs text-zinc-500">Tsy misy fitaovana ilaina</p>
+            )}
+            {formData.materialResources.map((mat, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Anaran'ny fitaovana"
+                  value={mat.name}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].name = e.target.value;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Ilaina"
+                  value={mat.needed}
+                  min={0}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].needed = parseInt(e.target.value) || 0;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="w-32 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Efa hananana"
+                  value={mat.owned}
+                  min={0}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].owned = parseInt(e.target.value) || 0;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="w-32 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = formData.materialResources.filter(
+                      (_, i) => i !== idx,
+                    );
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <TrashIcon className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Ressources Humaines */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">Olona Ilaina</label>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    humanResources: [...formData.humanResources, { name: "" }],
+                  })
+                }
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusIcon className="size-3" /> Hanampy
+              </button>
+            </div>
+            {formData.humanResources.length === 0 && (
+              <p className="text-xs text-zinc-500">Tsy misy olona ilaina</p>
+            )}
+            {formData.humanResources.map((hr, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Anaran'ny olona / Andraikitra"
+                  value={hr.name}
+                  onChange={(e) => {
+                    const updated = [...formData.humanResources];
+                    updated[idx].name = e.target.value;
+                    setFormData({ ...formData, humanResources: updated });
+                  }}
+                  className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = formData.humanResources.filter(
+                      (_, i) => i !== idx,
+                    );
+                    setFormData({ ...formData, humanResources: updated });
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <TrashIcon className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Ressources Financières */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <label className="block text-sm font-medium mb-2">
+              Vola Ilaina
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Tokony ho eo (Ar)
+                </label>
+                <input
+                  type="number"
+                  value={formData.financialResources.needed}
+                  min={0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      financialResources: {
+                        ...formData.financialResources,
+                        needed: parseFloat(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Efa eo (Ar)
+                </label>
+                <input
+                  type="number"
+                  value={formData.financialResources.owned}
+                  min={0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      financialResources: {
+                        ...formData.financialResources,
+                        owned: parseFloat(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
           {/*Public/Private Toggle*/}
           <div className="flex items-center gap-3 p-3 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
             <input
@@ -311,7 +494,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
               disabled={isSubmitting || !currentWorkspace}
               className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200"
             >
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {isSubmitting ? "Eo am-pamoronana..." : "Foronina ilay tetikasa"}
             </button>
           </div>
         </form>

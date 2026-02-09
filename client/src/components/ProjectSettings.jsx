@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Plus, Save } from "lucide-react";
+import { Plus, Save, PlusIcon, TrashIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
 import { useDispatch } from "react-redux";
@@ -21,7 +21,10 @@ export default function ProjectSettings({ project }) {
     start_date: "2025-09-10",
     end_date: "2025-10-15",
     progress: 30,
-    isPublic: false, // Ajout du champ isPublic pour gérer la visibilité du projet
+    isPublic: false,
+    materialResources: [],
+    humanResources: [],
+    financialResources: [],
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -73,6 +76,9 @@ export default function ProjectSettings({ project }) {
           ? new Date(project.start_date)
           : new Date(),
         end_date: project.end_date ? new Date(project.end_date) : new Date(),
+        materialResources: project.materialResources || [],
+        humanResources: project.humanResources || [],
+        financialResources: project.financialResources || [],
       };
       setFormData(formattedProject);
     }
@@ -226,6 +232,188 @@ export default function ProjectSettings({ project }) {
             </label>
           </div>
 
+          {/* Ressources Matérielles */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">
+                Fitaovana Ilaina
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    materialResources: [
+                      ...formData.materialResources,
+                      { name: "", needed: 1, owned: 0 },
+                    ],
+                  })
+                }
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusIcon className="size-3" /> Hanampy
+              </button>
+            </div>
+            {formData.materialResources.length === 0 && (
+              <p className="text-xs text-zinc-500">Tsy misy fitaovana ilaina</p>
+            )}
+            {formData.materialResources.map((mat, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Anaran'ny fitaovana"
+                  value={mat.name}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].name = e.target.value;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Ilaina"
+                  value={mat.needed}
+                  min={0}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].needed = parseInt(e.target.value) || 0;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="w-16 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Efa eo"
+                  value={mat.owned}
+                  min={0}
+                  onChange={(e) => {
+                    const updated = [...formData.materialResources];
+                    updated[idx].owned = parseInt(e.target.value) || 0;
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="w-16 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = formData.materialResources.filter(
+                      (_, i) => i !== idx,
+                    );
+                    setFormData({ ...formData, materialResources: updated });
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <TrashIcon className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Ressources Humaines */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">Olona Ilaina</label>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    humanResources: [...formData.humanResources, { name: "" }],
+                  })
+                }
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusIcon className="size-3" /> Hanampy
+              </button>
+            </div>
+            {formData.humanResources.length === 0 && (
+              <p className="text-xs text-zinc-500">Tsy misy olona ilaina</p>
+            )}
+            {formData.humanResources.map((hr, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Anaran'ny olona / Andraikitra"
+                  value={hr.name}
+                  onChange={(e) => {
+                    const updated = [...formData.humanResources];
+                    updated[idx].name = e.target.value;
+                    setFormData({ ...formData, humanResources: updated });
+                  }}
+                  className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = formData.humanResources.filter(
+                      (_, i) => i !== idx,
+                    );
+                    setFormData({ ...formData, humanResources: updated });
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <TrashIcon className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Ressources Financières */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <label className="block text-sm font-medium mb-2">
+              Vola Ilaina
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Tokony ho eo (Ar)
+                </label>
+                <input
+                  type="number"
+                  value={formData.financialResources?.[0]?.amount || 0}
+                  min={0}
+                  onChange={(e) => {
+                    const current = formData.financialResources?.[0] || {
+                      amount: 0,
+                      owned: 0,
+                    };
+                    setFormData({
+                      ...formData,
+                      financialResources: [
+                        { ...current, amount: parseFloat(e.target.value) || 0 },
+                      ],
+                    });
+                  }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Efa eo (Ar)
+                </label>
+                <input
+                  type="number"
+                  value={formData.financialResources?.[0]?.owned || 0}
+                  min={0}
+                  onChange={(e) => {
+                    const current = formData.financialResources?.[0] || {
+                      amount: 0,
+                      owned: 0,
+                    };
+                    setFormData({
+                      ...formData,
+                      financialResources: [
+                        { ...current, owned: parseFloat(e.target.value) || 0 },
+                      ],
+                    });
+                  }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Save Button */}
           <button
             type="submit"
@@ -233,7 +421,7 @@ export default function ProjectSettings({ project }) {
             className="ml-auto flex items-center text-sm justify-center gap-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-4 py-2 rounded"
           >
             <Save className="size-4" />{" "}
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting ? "Eo am-panovana" : "Hovaina"}
           </button>
         </form>
       </div>

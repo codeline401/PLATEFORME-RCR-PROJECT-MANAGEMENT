@@ -109,6 +109,10 @@ model Project {
     owner     User      @relation("ProjectOwner", fields: [team_lead], references: [id], onDelete: Cascade)
     workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
     tasks     Task[]
+    
+    materialResources  MaterialResource[]
+    humanResources     HumanResource[]
+    financialResources FinancialResource[]
 }
 
 model ProjectMember {
@@ -148,4 +152,36 @@ model Comment {
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
     task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model MaterialResource {
+    id String @id @default(uuid())
+    projectId String
+    name String // Nom du matériel
+    needed Int @default(1) // Quantité nécessaire
+    owned Int @default(0) // Quantité déjà possédée
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model HumanResource {
+    id String @id @default(uuid())
+    projectId String
+    name String // Nom/Role de la personne nécessaire
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model FinancialResource {
+    id String @id @default(uuid())
+    projectId String
+    amount Float @default(0)// Montant nécessaire
+    owned Float @default(0) // Montant déjà possédé
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

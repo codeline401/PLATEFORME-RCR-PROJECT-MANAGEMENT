@@ -24,6 +24,10 @@ export const createProject = async (req, res) => {
       progress,
       priority,
       isPublic = true,
+      // Ressources
+      materialResources = [],
+      humanResources = [],
+      financialResources = { needed: 0, owned: 0 },
     } = req.body;
 
     // Validation des champs obligatoires
@@ -164,16 +168,79 @@ export const createProject = async (req, res) => {
       console.log(`  ℹ️  Aucun membre à ajouter`);
     }
 
-    // ========== 7. RÉPONSE SUCCÈS ==========
-    console.log("📝 STEP 7: Envoi de la réponse");
+    // ========== 7. CRÉATION DES RESSOURCES ==========
+    console.log("📝 STEP 7: Création des ressources");
 
-    // Récupérer le projet avec tous ses membres
+    // Ressources Matérielles
+    if (materialResources && materialResources.length > 0) {
+      try {
+        await prisma.materialResource.createMany({
+          data: materialResources
+            .filter((r) => r.name && r.name.trim() !== "")
+            .map((r) => ({
+              projectId: project.id,
+              name: r.name,
+              needed: r.needed || 1,
+              owned: r.owned || 0,
+            })),
+        });
+        console.log(
+          `  ✓ ${materialResources.length} ressources matérielles créées`,
+        );
+      } catch (err) {
+        console.warn(`  ⚠️  Erreur ressources matérielles:`, err.message);
+      }
+    }
+
+    // Ressources Humaines
+    if (humanResources && humanResources.length > 0) {
+      try {
+        await prisma.humanResource.createMany({
+          data: humanResources
+            .filter((r) => r.name && r.name.trim() !== "")
+            .map((r) => ({
+              projectId: project.id,
+              name: r.name,
+            })),
+        });
+        console.log(`  ✓ ${humanResources.length} ressources humaines créées`);
+      } catch (err) {
+        console.warn(`  ⚠️  Erreur ressources humaines:`, err.message);
+      }
+    }
+
+    // Ressources Financières
+    if (
+      financialResources &&
+      (financialResources.needed > 0 || financialResources.owned > 0)
+    ) {
+      try {
+        await prisma.financialResource.create({
+          data: {
+            projectId: project.id,
+            amount: financialResources.needed || 0,
+            owned: financialResources.owned || 0,
+          },
+        });
+        console.log(`  ✓ Ressource financière créée`);
+      } catch (err) {
+        console.warn(`  ⚠️  Erreur ressource financière:`, err.message);
+      }
+    }
+
+    // ========== 8. RÉPONSE SUCCÈS ==========
+    console.log("📝 STEP 8: Envoi de la réponse");
+
+    // Récupérer le projet avec tous ses membres et ressources
     const projectWithMembers = await prisma.project.findUnique({
       where: { id: project.id },
       include: {
         members: {
           include: { user: true },
         },
+        materialResources: true,
+        humanResources: true,
+        financialResources: true,
       },
     });
 
@@ -237,6 +304,9 @@ export const updateProject = async (req, res) => {
       priority,
       team_lead,
       isPublic,
+      materialResources,
+      humanResources,
+      financialResources,
     } = req.body; // get project details from request body
 
     // Check if user has admin role for workspace
@@ -290,8 +360,80 @@ export const updateProject = async (req, res) => {
       },
     });
 
+    // Update resources if provided
+    // Material Resources
+    if (materialResources !== undefined) {
+      // Delete existing material resources
+      await prisma.materialResource.deleteMany({
+        where: { projectId },
+      });
+      // Create new ones
+      if (materialResources.length > 0) {
+        await prisma.materialResource.createMany({
+          data: materialResources
+            .filter((r) => r.name && r.name.trim() !== "")
+            .map((r) => ({
+              projectId,
+              name: r.name,
+              needed: r.needed || 1,
+              owned: r.owned || 0,
+            })),
+        });
+      }
+    }
+
+    // Human Resources
+    if (humanResources !== undefined) {
+      await prisma.humanResource.deleteMany({
+        where: { projectId },
+      });
+      if (humanResources.length > 0) {
+        await prisma.humanResource.createMany({
+          data: humanResources
+            .filter((r) => r.name && r.name.trim() !== "")
+            .map((r) => ({
+              projectId,
+              name: r.name,
+            })),
+        });
+      }
+    }
+
+    // Financial Resources
+    if (financialResources !== undefined) {
+      await prisma.financialResource.deleteMany({
+        where: { projectId },
+      });
+      if (
+        financialResources.length > 0 &&
+        (financialResources[0]?.amount > 0 || financialResources[0]?.owned > 0)
+      ) {
+        await prisma.financialResource.create({
+          data: {
+            projectId,
+            amount: financialResources[0]?.amount || 0,
+            owned: financialResources[0]?.owned || 0,
+          },
+        });
+      }
+    }
+
+    // Fetch updated project with resources
+    const updatedProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: { include: { user: true } },
+        materialResources: true,
+        humanResources: true,
+        financialResources: true,
+      },
+    });
+
     //
-    res.json({ project, message: "Tetikasa voavao soa aman-tsara" });
+    res.json({
+      project: updatedProject,
+      message: "Tetikasa voavao soa aman-tsara",
+    });
   } catch (error) {
     console.error("Error updating project:", error);
     res.status(500).json({ message: error.code || error.message });
@@ -426,6 +568,9 @@ export const getPublicProjects = async (req, res) => {
         owner: true,
         members: { include: { user: true } },
         tasks: true,
+        materialResources: true,
+        humanResources: true,
+        financialResources: true,
       },
       orderBy: { createdAt: "desc" },
     });
