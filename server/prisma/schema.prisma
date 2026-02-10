@@ -53,12 +53,13 @@ model User {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    workspaces      WorkspaceMember[]
-    projects        Project[]         @relation("ProjectOwner")
-    tasks           Task[]            @relation("TaskAssignee")
-    comments        Comment[]
-    ownedWorkspaces Workspace[]
-    ProjectMember   ProjectMember[]
+    workspaces             WorkspaceMember[]
+    projects               Project[]              @relation("ProjectOwner")
+    tasks                  Task[]                 @relation("TaskAssignee")
+    comments               Comment[]
+    ownedWorkspaces        Workspace[]
+    ProjectMember          ProjectMember[]
+    materialContributions  MaterialContribution[] @relation("MaterialContributor")
 }
 
 model Workspace {
@@ -110,9 +111,10 @@ model Project {
     workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
     tasks     Task[]
     
-    materialResources  MaterialResource[]
-    humanResources     HumanResource[]
-    financialResources FinancialResource[]
+    materialResources     MaterialResource[]
+    humanResources        HumanResource[]
+    financialResources    FinancialResource[]
+    materialContributions MaterialContribution[]
 }
 
 model ProjectMember {
@@ -155,15 +157,47 @@ model Comment {
 }
 
 model MaterialResource {
-    id String @id @default(uuid())
+    id        String   @id @default(uuid())
     projectId String
-    name String // Nom du matériel
-    needed Int @default(1) // Quantité nécessaire
-    owned Int @default(0) // Quantité déjà possédée
+    name      String   // Nom du matériel
+    needed    Int      @default(1) // Quantité nécessaire
+    owned     Int      @default(0) // Quantité déjà possédée
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    contributions MaterialContribution[]
+}
+
+// ============================================================
+// CONTRIBUTION MODELS - Gestion des dotations et participations
+// ============================================================
+
+enum ContributionStatus {
+    PENDING   // En attente de confirmation par le lead
+    APPROVED  // Approuvée - ressource ajoutée
+    REJECTED  // Rejetée par le lead
+}
+
+model MaterialContribution {
+    id         String             @id @default(uuid())
+    quantity   Int                // Quantité proposée
+    message    String?            // Message optionnel du contributeur
+    status     ContributionStatus @default(PENDING)
+    createdAt  DateTime           @default(now())
+    updatedAt  DateTime           @updatedAt
+
+    // Relations
+    resourceId    String
+    resource      MaterialResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+    contributorId String
+    contributor   User             @relation("MaterialContributor", fields: [contributorId], references: [id], onDelete: Cascade)
+    projectId     String
+    project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    @@index([projectId])
+    @@index([contributorId])
+    @@index([status])
 }
 
 model HumanResource {

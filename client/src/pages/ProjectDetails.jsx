@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
+import api from "../configs/api.js";
+import { fetchWorkspaces } from "../features/workspaceSlice.js";
 import {
   ArrowLeftIcon,
   PlusIcon,
@@ -9,6 +13,9 @@ import {
   CalendarIcon,
   FileStackIcon,
   ZapIcon,
+  XIcon,
+  PackageIcon,
+  CheckCircleIcon,
 } from "lucide-react";
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
@@ -17,6 +24,8 @@ import ProjectCalendar from "../components/ProjectCalendar";
 import ProjectTasks from "../components/ProjectTasks";
 
 export default function ProjectDetail() {
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab");
   const id = searchParams.get("id");
@@ -30,6 +39,13 @@ export default function ProjectDetail() {
   const [tasks, setTasks] = useState([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [activeTab, setActiveTab] = useState(tab || "tasks");
+  const [selectedMaterialResource, setSelectedMaterialResource] =
+    useState(null);
+  const [materialContribution, setMaterialContribution] = useState({
+    quantity: 1,
+    message: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (tab) setActiveTab(tab);
@@ -164,20 +180,37 @@ export default function ProjectDetail() {
           </h3>
           {project.materialResources?.length > 0 ? (
             <ul className="space-y-2">
-              {project.materialResources.map((res) => (
-                <li
-                  key={res.id}
-                  className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
-                >
-                  <span className="flex-1">{res.name}</span>
-                  <span className="text-zinc-500">
-                    {res.owned}/{res.needed}
-                  </span>
-                  <button className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white">
-                    Hanolotra
-                  </button>
-                </li>
-              ))}
+              {project.materialResources.map((res) => {
+                const isComplete = res.owned >= res.needed;
+                return (
+                  <li
+                    key={res.id}
+                    className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
+                  >
+                    <span className="flex-1">{res.name}</span>
+                    <span
+                      className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}
+                    >
+                      {res.owned}/{res.needed}
+                    </span>
+                    {isComplete ? (
+                      <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                        ✓ Feno
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedMaterialResource(res);
+                          setMaterialContribution({ quantity: 1, message: "" });
+                        }}
+                        className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white"
+                      >
+                        Hanolotra
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-xs text-zinc-500">Tsy misy fitaovana ilaina</p>
@@ -320,6 +353,185 @@ export default function ProjectDetail() {
           setShowCreateTask={setShowCreateTask}
           projectId={id}
         />
+      )}
+
+      {/* Material Resource Contribution Dialog */}
+      {selectedMaterialResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <PackageIcon className="size-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-zinc-900 dark:text-white">
+                    Fanolorana Fitaovana
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Handray anjara amin'ity tetikasa ity
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedMaterialResource(null)}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* Resource Info */}
+              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-zinc-900 dark:text-white">
+                    {selectedMaterialResource.name}
+                  </span>
+                  <span
+                    className={`text-sm px-2 py-0.5 rounded ${
+                      selectedMaterialResource.owned >=
+                      selectedMaterialResource.needed
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    }`}
+                  >
+                    {selectedMaterialResource.owned >=
+                    selectedMaterialResource.needed
+                      ? "Ampy"
+                      : "Tsy Ampy"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-400">
+                  <span>
+                    Efa misy: <strong>{selectedMaterialResource.owned}</strong>
+                  </span>
+                  <span>
+                    Ilaina: <strong>{selectedMaterialResource.needed}</strong>
+                  </span>
+                </div>
+                <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, (selectedMaterialResource.owned / selectedMaterialResource.needed) * 100)}%`,
+                    }}
+                  ></div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-2">
+                  Mbola ilaina:{" "}
+                  <strong>
+                    {Math.max(
+                      0,
+                      selectedMaterialResource.needed -
+                        selectedMaterialResource.owned,
+                    )}
+                  </strong>
+                </p>
+              </div>
+
+              {/* Contribution Form */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    Isa holotra
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(
+                      1,
+                      selectedMaterialResource.needed -
+                        selectedMaterialResource.owned,
+                    )}
+                    value={materialContribution.quantity}
+                    onChange={(e) =>
+                      setMaterialContribution({
+                        ...materialContribution,
+                        quantity: Math.max(1, parseInt(e.target.value) || 1),
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    Hafatra (tsy voatery)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={materialContribution.message}
+                    onChange={(e) =>
+                      setMaterialContribution({
+                        ...materialContribution,
+                        message: e.target.value,
+                      })
+                    }
+                    placeholder="Anontanio na lazao ny fomba hanateranao azy..."
+                    className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => setSelectedMaterialResource(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                Hiverina
+              </button>
+              <button
+                disabled={isSubmitting}
+                onClick={async () => {
+                  setIsSubmitting(true);
+                  try {
+                    const token = await getToken();
+                    const { data } = await api.post(
+                      "/api/contributions/material",
+                      {
+                        resourceId: selectedMaterialResource.id,
+                        projectId: id,
+                        quantity: materialContribution.quantity,
+                        message: materialContribution.message || null,
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    // Message différent selon si auto-approuvé ou en attente
+                    if (data.autoApproved) {
+                      toast.success("Voatahiry ny fanampiana natolotrao!");
+                      // Rafraîchir les données car auto-approuvé
+                      dispatch(fetchWorkspaces(token));
+                    } else {
+                      toast.success(
+                        "Lasa ilay fangatahana hanampy. Miandry ny fankatoavan'ny mpandrindra ny tetikasa.",
+                      );
+                    }
+                    setSelectedMaterialResource(null);
+                    setMaterialContribution({ quantity: 1, message: "" });
+                  } catch (error) {
+                    toast.error(
+                      error?.response?.data?.message || "Nisy olana nitranga",
+                    );
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  <CheckCircleIcon className="size-4" />
+                )}
+                Hanolotra
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

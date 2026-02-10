@@ -1,8 +1,17 @@
 import { format } from "date-fns";
-import { Plus, Save, PlusIcon, TrashIcon } from "lucide-react";
+import {
+  Plus,
+  Save,
+  PlusIcon,
+  TrashIcon,
+  PackageIcon,
+  CheckIcon,
+  XIcon,
+  ClockIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import api from "../configs/api.js";
@@ -12,6 +21,10 @@ export default function ProjectSettings({ project }) {
   const dispatch = useDispatch();
   // FIX: Destructurer correctement getToken depuis useAuth()
   const { getToken } = useAuth();
+
+  // Récupérer l'utilisateur courant pour vérifier s'il est le lead
+  const currentUser = useSelector((state) => state.workspace?.user);
+  const isProjectLead = project?.team_lead === currentUser?.id;
 
   const [formData, setFormData] = useState({
     name: "New Website Launch",
@@ -29,6 +42,84 @@ export default function ProjectSettings({ project }) {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // État pour les contributions en attente
+  const [pendingContributions, setPendingContributions] = useState([]);
+  const [isLoadingContributions, setIsLoadingContributions] = useState(false);
+  const [processingContributionId, setProcessingContributionId] =
+    useState(null);
+
+  // Charger les contributions en attente
+  const fetchPendingContributions = async () => {
+    if (!project?.id || !isProjectLead) return;
+
+    setIsLoadingContributions(true);
+    try {
+      const token = await getToken();
+      const { data } = await api.get(
+        `/api/contributions/project/${project.id}?status=PENDING`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setPendingContributions(data);
+    } catch (error) {
+      console.error("Erreur chargement contributions:", error);
+    } finally {
+      setIsLoadingContributions(false);
+    }
+  };
+
+  // Approuver une contribution
+  const handleApprove = async (contributionId) => {
+    setProcessingContributionId(contributionId);
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/contributions/${contributionId}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success("Contribution approuvée !");
+      // Retirer de la liste et rafraîchir les données
+      setPendingContributions((prev) =>
+        prev.filter((c) => c.id !== contributionId),
+      );
+      // Rafraîchir les workspaces pour mettre à jour les ressources
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Erreur lors de l'approbation",
+      );
+    } finally {
+      setProcessingContributionId(null);
+    }
+  };
+
+  // Rejeter une contribution
+  const handleReject = async (contributionId) => {
+    setProcessingContributionId(contributionId);
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/contributions/${contributionId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success("Contribution rejetée");
+      setPendingContributions((prev) =>
+        prev.filter((c) => c.id !== contributionId),
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Erreur lors du rejet");
+    } finally {
+      setProcessingContributionId(null);
+    }
+  };
+
+  // Charger les contributions au montage
+  useEffect(() => {
+    fetchPendingContributions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id, isProjectLead]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -421,7 +512,7 @@ export default function ProjectSettings({ project }) {
             className="ml-auto flex items-center text-sm justify-center gap-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-4 py-2 rounded"
           >
             <Save className="size-4" />{" "}
-            {isSubmitting ? "Eo am-panovana" : "Hovaina"}
+            {isSubmitting ? "Eo am-panovana..." : "Hovaina"}
           </button>
         </form>
       </div>
@@ -468,6 +559,120 @@ export default function ProjectSettings({ project }) {
             </div>
           )}
         </div>
+
+        {/* Pending Contributions - Visible only for Lead */}
+        {isProjectLead && (
+          <div className={cardClasses}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                <ClockIcon className="size-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-300">
+                  Fanolorana Miandry
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Mila fankatoavanao
+                </p>
+              </div>
+              {pendingContributions.length > 0 && (
+                <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  {pendingContributions.length}
+                </span>
+              )}
+            </div>
+
+            {isLoadingContributions ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="size-6 border-2 border-zinc-300 dark:border-zinc-600 border-t-blue-500 rounded-full animate-spin"></span>
+              </div>
+            ) : pendingContributions.length === 0 ? (
+              <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                <PackageIcon className="size-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Tsy misy fanolorana miandry</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {pendingContributions.map((contribution) => (
+                  <div
+                    key={contribution.id}
+                    className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50"
+                  >
+                    {/* Contributor Info */}
+                    <div className="flex items-center gap-3 mb-2">
+                      {contribution.contributor?.image ? (
+                        <img
+                          src={contribution.contributor.image}
+                          alt={contribution.contributor.name}
+                          className="size-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="size-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+                          {contribution.contributor?.name?.charAt(0) || "?"}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                          {contribution.contributor?.name || "Inconnu"}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {new Date(contribution.createdAt).toLocaleDateString(
+                            "fr-FR",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Resource & Quantity */}
+                    <div className="flex items-center gap-2 mb-2 text-sm">
+                      <PackageIcon className="size-4 text-zinc-400" />
+                      <span className="text-zinc-700 dark:text-zinc-300">
+                        <strong>{contribution.quantity}x</strong>{" "}
+                        {contribution.resource?.name}
+                      </span>
+                    </div>
+
+                    {/* Message if any */}
+                    {contribution.message && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 italic mb-3 pl-6">
+                        "{contribution.message}"
+                      </p>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => handleApprove(contribution.id)}
+                        disabled={processingContributionId === contribution.id}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                      >
+                        {processingContributionId === contribution.id ? (
+                          <span className="size-3 border border-white/30 border-t-white rounded-full animate-spin"></span>
+                        ) : (
+                          <CheckIcon className="size-3.5" />
+                        )}
+                        Ekena
+                      </button>
+                      <button
+                        onClick={() => handleReject(contribution.id)}
+                        disabled={processingContributionId === contribution.id}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50"
+                      >
+                        <XIcon className="size-3.5" />
+                        Lavina
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
