@@ -371,40 +371,82 @@ export const updateProject = async (req, res) => {
     });
 
     // Update resources if provided
-    // Material Resources
+    // Material Resources - Update existing, create new, delete removed
     if (materialResources !== undefined) {
-      // Delete existing material resources
+      const validMaterialResources = materialResources.filter((r) => r.name && r.name.trim() !== "");
+      
+      // Get IDs of resources to keep
+      const idsToKeep = validMaterialResources.filter((r) => r.id).map((r) => r.id);
+      
+      // Delete only resources that are no longer in the list
       await prisma.materialResource.deleteMany({
-        where: { projectId },
+        where: { 
+          projectId,
+          id: { notIn: idsToKeep }
+        },
       });
-      // Create new ones
-      if (materialResources.length > 0) {
+      
+      // Update existing resources
+      for (const mr of validMaterialResources.filter((r) => r.id)) {
+        await prisma.materialResource.update({
+          where: { id: mr.id },
+          data: { 
+            name: mr.name,
+            needed: mr.needed || 1,
+            owned: mr.owned || 0,
+          },
+        });
+      }
+      
+      // Create new resources (without id)
+      const newResources = validMaterialResources.filter((r) => !r.id);
+      if (newResources.length > 0) {
         await prisma.materialResource.createMany({
-          data: materialResources
-            .filter((r) => r.name && r.name.trim() !== "")
-            .map((r) => ({
-              projectId,
-              name: r.name,
-              needed: r.needed || 1,
-              owned: r.owned || 0,
-            })),
+          data: newResources.map((r) => ({
+            projectId,
+            name: r.name,
+            needed: r.needed || 1,
+            owned: r.owned || 0,
+          })),
         });
       }
     }
 
-    // Human Resources
+    // Human Resources - Update existing, create new, delete removed
     if (humanResources !== undefined) {
+      const validHumanResources = humanResources.filter((r) => r.name && r.name.trim() !== "");
+      
+      // Get IDs of resources to keep
+      const idsToKeep = validHumanResources.filter((r) => r.id).map((r) => r.id);
+      
+      // Delete only resources that are no longer in the list
       await prisma.humanResource.deleteMany({
-        where: { projectId },
+        where: { 
+          projectId,
+          id: { notIn: idsToKeep }
+        },
       });
-      if (humanResources.length > 0) {
+      
+      // Update existing resources
+      for (const hr of validHumanResources.filter((r) => r.id)) {
+        await prisma.humanResource.update({
+          where: { id: hr.id },
+          data: { 
+            name: hr.name,
+            needed: hr.needed || 1
+          },
+        });
+      }
+      
+      // Create new resources (without id)
+      const newResources = validHumanResources.filter((r) => !r.id);
+      if (newResources.length > 0) {
         await prisma.humanResource.createMany({
-          data: humanResources
-            .filter((r) => r.name && r.name.trim() !== "")
-            .map((r) => ({
-              projectId,
-              name: r.name,
-            })),
+          data: newResources.map((r) => ({
+            projectId,
+            name: r.name,
+            needed: r.needed || 1,
+          })),
         });
       }
     }
