@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import api from "../configs/api.js";
 import { fetchWorkspaces } from "../features/workspaceSlice.js";
@@ -16,6 +16,7 @@ import {
   XIcon,
   PackageIcon,
   CheckCircleIcon,
+  UsersIcon,
 } from "lucide-react";
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
@@ -25,6 +26,7 @@ import ProjectTasks from "../components/ProjectTasks";
 
 export default function ProjectDetail() {
   const { getToken } = useAuth();
+  const { user } = useUser();
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab");
@@ -46,6 +48,21 @@ export default function ProjectDetail() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Human resource participation state
+  const [selectedHumanResource, setSelectedHumanResource] = useState(null);
+  const [humanParticipationMessage, setHumanParticipationMessage] =
+    useState("");
+  const [isSubmittingHuman, setIsSubmittingHuman] = useState(false);
+
+  // Get current workspace to find current user ID
+  const currentWorkspace = useSelector(
+    (state) => state.workspace?.currentWorkspace,
+  );
+  const currentMember = currentWorkspace?.members?.find(
+    (m) => m.user?.email === user?.primaryEmailAddress?.emailAddress,
+  );
+  const currentUserId = currentMember?.user?.id;
 
   useEffect(() => {
     if (tab) setActiveTab(tab);
@@ -224,17 +241,78 @@ export default function ProjectDetail() {
           </h3>
           {project.humanResources?.length > 0 ? (
             <ul className="space-y-2">
-              {project.humanResources.map((res) => (
-                <li
-                  key={res.id}
-                  className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
-                >
-                  <span className="flex-1">{res.name}</span>
-                  <button className="text-xs px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white">
-                    Handray anjara
-                  </button>
-                </li>
-              ))}
+              {project.humanResources.map((res) => {
+                const hasParticipated = res.participants?.some(
+                  (p) => p.participant?.id === currentUserId,
+                );
+                const participantCount = res.participants?.length || 0;
+                const neededCount = res.needed || 1;
+                const isComplete = participantCount >= neededCount;
+
+                return (
+                  <li
+                    key={res.id}
+                    className="flex flex-col gap-2 text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex-1">{res.name}</span>
+                      <span className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}>
+                        {participantCount}/{neededCount}
+                      </span>
+                      {isComplete ? (
+                        <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                          ✓ Ampy
+                        </span>
+                      ) : hasParticipated ? (
+                        <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                          ✓ Nirotsaka
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSelectedHumanResource(res);
+                            setHumanParticipationMessage("");
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          Handray anjara
+                        </button>
+                      )}
+                    </div>
+                    {participantCount > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                        <span className="text-zinc-400">→</span>
+                        {res.participants?.map((p, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1"
+                          >
+                            {p.participant?.image ? (
+                              <img
+                                src={p.participant.image}
+                                alt={p.participant.name}
+                                className="size-4 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="size-4 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] text-emerald-600 dark:text-emerald-400">
+                                {p.participant?.name?.charAt(0) || "?"}
+                              </span>
+                            )}
+                            <span className="text-zinc-700 dark:text-zinc-300">
+                              {p.participant?.name?.split(" ")[0]}
+                            </span>
+                            {idx < res.participants.length - 1 && (
+                              <span className="text-zinc-300 dark:text-zinc-600">
+                                ,
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-xs text-zinc-500">Tsy misy olona ilaina</p>
@@ -528,6 +606,126 @@ export default function ProjectDetail() {
                   <CheckCircleIcon className="size-4" />
                 )}
                 Hanolotra
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Human Resource Participation Dialog */}
+      {selectedHumanResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                  <UsersIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-zinc-900 dark:text-white">
+                    Firotsahana
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Handray anjara amin'ity tetikasa ity
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedHumanResource(null)}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* Role Info */}
+              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <UsersIcon className="size-4 text-zinc-400" />
+                  <span className="font-medium text-zinc-900 dark:text-white">
+                    {selectedHumanResource.name}
+                  </span>
+                </div>
+                {selectedHumanResource.participants?.length > 0 && (
+                  <p className="text-xs text-zinc-500">
+                    {selectedHumanResource.participants.length} efa nandray ny
+                    andraikitra
+                  </p>
+                )}
+              </div>
+
+              {/* Confirmation text */}
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                <p>
+                  Raha manaiky ianao, dia hanjary mpikambana amin'ity tetikasa
+                  ity ary hahazo email fanamarinana.
+                </p>
+              </div>
+
+              {/* Optional Message */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Hafatra (tsy voatery)
+                </label>
+                <textarea
+                  rows={3}
+                  value={humanParticipationMessage}
+                  onChange={(e) => setHumanParticipationMessage(e.target.value)}
+                  placeholder="Lazao ny traikefanao na ny antony hirotsahanao..."
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => setSelectedHumanResource(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                Hanafoana
+              </button>
+              <button
+                disabled={isSubmittingHuman}
+                onClick={async () => {
+                  setIsSubmittingHuman(true);
+                  try {
+                    const token = await getToken();
+                    await api.post(
+                      "/api/contributions/human",
+                      {
+                        resourceId: selectedHumanResource.id,
+                        projectId: id,
+                        message: humanParticipationMessage || null,
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    toast.success(
+                      "Voatahiry ny firotsahanao! Hahazo email fanamarinana ianao.",
+                    );
+                    setSelectedHumanResource(null);
+                    setHumanParticipationMessage("");
+                    // Refresh workspace data
+                    dispatch(fetchWorkspaces(token));
+                  } catch (error) {
+                    toast.error(
+                      error?.response?.data?.message || "Nisy olana nitranga",
+                    );
+                  } finally {
+                    setIsSubmittingHuman(false);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingHuman ? (
+                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  <CheckCircleIcon className="size-4" />
+                )}
+                Manaiky
               </button>
             </div>
           </div>

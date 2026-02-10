@@ -424,3 +424,231 @@ export const getMyContributions = async (req, res) => {
     });
   }
 };
+
+// ============================================================
+// HUMAN CONTRIBUTION - Participation aux ressources humaines
+// ============================================================
+
+/**
+ * Participer à une ressource humaine
+ * POST /api/contributions/human
+ */
+export const participateHumanResource = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { resourceId, projectId, message } = req.body;
+
+    // Validation
+    if (!resourceId || !projectId) {
+      return res.status(400).json({
+        message: "resourceId et projectId sont obligatoires",
+      });
+    }
+
+    // Vérifier que la ressource existe
+    const resource = await prisma.humanResource.findFirst({
+      where: { id: resourceId, projectId },
+      include: {
+        project: {
+          include: {
+            owner: { select: { id: true, name: true, email: true } },
+          },
+        },
+        participants: {
+          include: {
+            participant: { select: { id: true } },
+          },
+        },
+      },
+    });
+
+    if (!resource) {
+      return res.status(404).json({
+        message: "Ressource non trouvée",
+      });
+    }
+
+    // Vérifier si l'utilisateur participe déjà
+    const alreadyParticipating = resource.participants.some(
+      (p) => p.participant.id === userId,
+    );
+
+    if (alreadyParticipating) {
+      return res.status(400).json({
+        message: "Efa nirotsaka tamin'ity andraikitra ity ianao",
+      });
+    }
+
+    // Récupérer les infos du participant
+    const participant = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!participant) {
+      return res.status(404).json({
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Créer la participation
+    const contribution = await prisma.humanContribution.create({
+      data: {
+        message: message || null,
+        resourceId,
+        projectId,
+        participantId: userId,
+      },
+      include: {
+        resource: true,
+        participant: {
+          select: { id: true, name: true, email: true, image: true },
+        },
+        project: { select: { id: true, name: true } },
+      },
+    });
+
+    const projectName = resource.project.name;
+    const leadEmail = resource.project.owner.email;
+    const leadName = resource.project.owner.name;
+    const isLead = resource.project.owner.id === userId;
+
+    // Email au participant
+    try {
+      await sendEmail(
+        participant.email,
+        `Firotsahana voamarina - ${projectName}`,
+        `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #22c55e;">✓ Voamarina ny firotsahanao</h2>
+            <p>Miarahaba ${participant.name},</p>
+            <p>Voaray soa aman-tsara ny firotsahanao ho <strong>${resource.name}</strong> ao amin'ny tetikasa <strong>${projectName}</strong>.</p>
+            
+            <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #22c55e;">
+              <p style="margin: 0 0 8px 0;"><strong>Andraikitra:</strong> ${resource.name}</p>
+              <p style="margin: 0;"><strong>Tetikasa:</strong> ${projectName}</p>
+            </div>
+            
+            <p>Misaotra anao noho ny fandraisanao anjara!</p>
+            
+            <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+              — L'équipe RCR Project Management
+            </p>
+          </div>
+        `,
+      );
+    } catch (emailError) {
+      console.error("Erreur envoi email participant:", emailError);
+    }
+
+    // Email au lead (si ce n'est pas lui qui participe)
+    if (!isLead) {
+      try {
+        await sendEmail(
+          leadEmail,
+          `[${projectName}] Mpikambana vaovao nirotsaka`,
+          `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #3b82f6;">Mpikambana vaovao</h2>
+              <p>Miarahaba ${leadName},</p>
+              <p><strong>${participant.name}</strong> dia nirotsaka ho <strong>${resource.name}</strong> ao amin'ny tetikasanao <strong>${projectName}</strong>.</p>
+              
+              <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                <p style="margin: 0 0 8px 0;"><strong>Andraikitra:</strong> ${resource.name}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Anarana:</strong> ${participant.name}</p>
+                <p style="margin: 0;"><strong>Email:</strong> ${participant.email}</p>
+                ${message ? `<p style="margin: 8px 0 0 0;"><strong>Hafatra:</strong> ${message}</p>` : ""}
+              </div>
+              
+              <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+                — L'équipe RCR Project Management
+              </p>
+            </div>
+          `,
+        );
+      } catch (emailError) {
+        console.error("Erreur envoi email lead:", emailError);
+      }
+    }
+
+    res.status(201).json({
+      message: "Firotsahana voatahiry soa aman-tsara",
+      contribution,
+    });
+  } catch (error) {
+    console.error("Erreur participateHumanResource:", error);
+    res.status(500).json({
+      message: "Nisy olana tamin'ny firotsahana",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Annuler sa participation
+ * DELETE /api/contributions/human/:id
+ */
+export const cancelHumanParticipation = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    // Vérifier que la participation existe et appartient à l'utilisateur
+    const contribution = await prisma.humanContribution.findFirst({
+      where: { id, participantId: userId },
+      include: {
+        resource: true,
+        project: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!contribution) {
+      return res.status(404).json({
+        message: "Participation non trouvée",
+      });
+    }
+
+    // Supprimer la participation
+    await prisma.humanContribution.delete({
+      where: { id },
+    });
+
+    res.json({
+      message: "Participation annulée",
+    });
+  } catch (error) {
+    console.error("Erreur cancelHumanParticipation:", error);
+    res.status(500).json({
+      message: "Erreur lors de l'annulation",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Récupérer les participants d'une ressource humaine
+ * GET /api/contributions/human/resource/:resourceId
+ */
+export const getHumanResourceParticipants = async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+
+    const participants = await prisma.humanContribution.findMany({
+      where: { resourceId },
+      include: {
+        participant: {
+          select: { id: true, name: true, email: true, image: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    res.json(participants);
+  } catch (error) {
+    console.error("Erreur getHumanResourceParticipants:", error);
+    res.status(500).json({
+      message: "Erreur lors de la récupération",
+      error: error.message,
+    });
+  }
+};

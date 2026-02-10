@@ -239,7 +239,17 @@ export const createProject = async (req, res) => {
           include: { user: true },
         },
         materialResources: true,
-        humanResources: true,
+        humanResources: {
+          include: {
+            participants: {
+              include: {
+                participant: {
+                  select: { id: true, name: true, email: true, image: true },
+                },
+              },
+            },
+          },
+        },
         financialResources: true,
       },
     });
@@ -424,7 +434,17 @@ export const updateProject = async (req, res) => {
       include: {
         members: { include: { user: true } },
         materialResources: true,
-        humanResources: true,
+        humanResources: {
+          include: {
+            participants: {
+              include: {
+                participant: {
+                  select: { id: true, name: true, email: true, image: true },
+                },
+              },
+            },
+          },
+        },
         financialResources: true,
       },
     });
@@ -569,7 +589,17 @@ export const getPublicProjects = async (req, res) => {
         members: { include: { user: true } },
         tasks: true,
         materialResources: true,
-        humanResources: true,
+        humanResources: {
+          include: {
+            participants: {
+              include: {
+                participant: {
+                  select: { id: true, name: true, email: true, image: true },
+                },
+              },
+            },
+          },
+        },
         financialResources: true,
       },
       orderBy: { createdAt: "desc" },

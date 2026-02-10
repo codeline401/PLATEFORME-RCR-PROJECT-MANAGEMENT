@@ -60,6 +60,7 @@ model User {
     ownedWorkspaces        Workspace[]
     ProjectMember          ProjectMember[]
     materialContributions  MaterialContribution[] @relation("MaterialContributor")
+    humanContributions     HumanContribution[]    @relation("HumanContributor")
 }
 
 model Workspace {
@@ -115,6 +116,7 @@ model Project {
     humanResources        HumanResource[]
     financialResources    FinancialResource[]
     materialContributions MaterialContribution[]
+    humanContributions    HumanContribution[]
 }
 
 model ProjectMember {
@@ -201,12 +203,34 @@ model MaterialContribution {
 }
 
 model HumanResource {
-    id String @id @default(uuid())
+    id        String   @id @default(uuid())
     projectId String
-    name String // Nom/Role de la personne nécessaire
+    name      String   // Nom/Role de la personne nécessaire
+    needed    Int      @default(1) // Nombre de personnes nécessaires
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
-    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    
+    project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    participants HumanContribution[]
+}
+
+model HumanContribution {
+    id        String   @id @default(uuid())
+    message   String?  // Message optionnel
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    resourceId    String
+    resource      HumanResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+    participantId String
+    participant   User          @relation("HumanContributor", fields: [participantId], references: [id], onDelete: Cascade)
+    projectId     String
+    project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    @@unique([resourceId, participantId]) // Empêcher la double participation
+    @@index([projectId])
+    @@index([participantId])
 }
 
 model FinancialResource {

@@ -33,7 +33,22 @@ export const getUserWorkspaces = async (req, res) => {
                   },
                 },
                 materialResources: true,
-                humanResources: true,
+                humanResources: {
+                  include: {
+                    participants: {
+                      include: {
+                        participant: {
+                          select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            image: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
                 financialResources: true,
               },
             },

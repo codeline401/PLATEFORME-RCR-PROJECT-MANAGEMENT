@@ -370,7 +370,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 onClick={() =>
                   setFormData({
                     ...formData,
-                    humanResources: [...formData.humanResources, { name: "" }],
+                    humanResources: [...formData.humanResources, { name: "", needed: 1 }],
                   })
                 }
                 className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
@@ -393,6 +393,18 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     setFormData({ ...formData, humanResources: updated });
                   }}
                   className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Isa"
+                  min="1"
+                  value={hr.needed || 1}
+                  onChange={(e) => {
+                    const updated = [...formData.humanResources];
+                    updated[idx].needed = parseInt(e.target.value) || 1;
+                    setFormData({ ...formData, humanResources: updated });
+                  }}
+                  className="w-16 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm text-center"
                 />
                 <button
                   type="button"
