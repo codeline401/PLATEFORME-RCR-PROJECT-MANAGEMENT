@@ -13,6 +13,7 @@ import taskRouter from "./routes/taskRoute.js";
 import commentRouter from "./routes/commentRoute.js";
 import contactRouter from "./routes/contactRoute.js";
 import contributionRouter from "./routes/contributionRoute.js";
+import objectiveRouter from "./routes/objectiveRoute.js";
 import { protect } from "./middlewares/authMiddlewares.js";
 import { getPublicProjects } from "./controllers/projectController.js";
 
@@ -33,6 +34,7 @@ app.use("/api/projects", protect, projectRouter); // use project routes
 app.use("/api/tasks", protect, taskRouter); // use task routes
 app.use("/api/comments", protect, commentRouter); // use comment routes
 app.use("/api/contributions", protect, contributionRouter); // use contribution routes
+app.use("/api/objectives", protect, objectiveRouter); // use objective routes
 app.use("/api/contact", contactRouter); // use contact routes (pas protégé - pour les guests)
 
 // Routes publiques (SANS authentification)

@@ -17,6 +17,8 @@ import {
   PackageIcon,
   CheckCircleIcon,
   UsersIcon,
+  TargetIcon,
+  TrashIcon,
 } from "lucide-react";
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
@@ -55,6 +57,27 @@ export default function ProjectDetail() {
     useState("");
   const [isSubmittingHuman, setIsSubmittingHuman] = useState(false);
 
+  // Objective states
+  const [showObjectiveModal, setShowObjectiveModal] = useState(false);
+  const [newObjective, setNewObjective] = useState({
+    name: "",
+    description: "",
+    result: "",
+    risk: "",
+  });
+  const [isSubmittingObjective, setIsSubmittingObjective] = useState(false);
+
+  // Indicator states
+  const [showIndicatorModal, setShowIndicatorModal] = useState(false);
+  const [selectedObjectiveForIndicator, setSelectedObjectiveForIndicator] =
+    useState(null);
+  const [newIndicator, setNewIndicator] = useState({
+    name: "",
+    target: 0,
+    unit: "",
+  });
+  const [isSubmittingIndicator, setIsSubmittingIndicator] = useState(false);
+
   // Get current workspace to find current user ID
   const currentWorkspace = useSelector(
     (state) => state.workspace?.currentWorkspace,
@@ -84,6 +107,123 @@ export default function ProjectDetail() {
       "bg-amber-200 text-amber-900 dark:bg-amber-500 dark:text-amber-900",
     COMPLETED: "bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-blue-900",
     CANCELLED: "bg-red-200 text-red-900 dark:bg-red-500 dark:text-red-900",
+  };
+
+  // Check if current user is project lead
+  const isProjectLead = project?.team_lead === currentUserId;
+
+  // Objective functions
+  const handleCreateObjective = async () => {
+    if (!newObjective.name.trim()) return;
+
+    setIsSubmittingObjective(true);
+    try {
+      const token = await getToken();
+      const response = await api.post(
+        `/api/objectives/project/${project.id}`,
+        newObjective,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (response.data) {
+        toast.success("Tanjona voasoratra");
+        dispatch(fetchWorkspaces(token));
+        setShowObjectiveModal(false);
+        setNewObjective({ name: "", description: "", result: "", risk: "" });
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Tsy nahomby");
+    } finally {
+      setIsSubmittingObjective(false);
+    }
+  };
+
+  const handleToggleObjective = async (objectiveId) => {
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/objectives/${objectiveId}/toggle`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("Erreur toggle:", error);
+      toast.error("Tsy nahomby");
+    }
+  };
+
+  const handleDeleteObjective = async (objectiveId) => {
+    if (!confirm("Hofafana ve ity tanjona ity?")) return;
+
+    try {
+      const token = await getToken();
+      await api.delete(`/api/objectives/${objectiveId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Tanjona voafafa");
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("Erreur delete:", error);
+      toast.error("Tsy nahomby");
+    }
+  };
+
+  // Indicator functions
+  const handleCreateIndicator = async () => {
+    if (!newIndicator.name.trim() || !selectedObjectiveForIndicator) return;
+
+    setIsSubmittingIndicator(true);
+    try {
+      const token = await getToken();
+      await api.post(
+        `/api/objectives/${selectedObjectiveForIndicator}/indicators`,
+        newIndicator,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success("Mari-pandrefesana voasoratra");
+      dispatch(fetchWorkspaces(token));
+      setShowIndicatorModal(false);
+      setNewIndicator({ name: "", target: 0, unit: "" });
+      setSelectedObjectiveForIndicator(null);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Tsy nahomby");
+    } finally {
+      setIsSubmittingIndicator(false);
+    }
+  };
+
+  const handleUpdateIndicatorValue = async (indicatorId, newValue) => {
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/objectives/indicators/${indicatorId}`,
+        { current: newValue },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("Erreur update:", error);
+      toast.error("Tsy nahomby");
+    }
+  };
+
+  const handleDeleteIndicator = async (indicatorId) => {
+    if (!confirm("Hofafana ve ity mari-pandrefesana ity?")) return;
+
+    try {
+      const token = await getToken();
+      await api.delete(`/api/objectives/indicators/${indicatorId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Mari-pandrefesana voafafa");
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      console.error("Erreur delete:", error);
+      toast.error("Tsy nahomby");
+    }
   };
 
   if (!project) {
@@ -256,7 +396,9 @@ export default function ProjectDetail() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex-1">{res.name}</span>
-                      <span className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}>
+                      <span
+                        className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}
+                      >
                         {participantCount}/{neededCount}
                       </span>
                       {isComplete ? (
@@ -369,6 +511,199 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <p className="text-xs text-zinc-500">Tsy misy vola ilaina</p>
+          )}
+        </div>
+      </div>
+
+      {/* Objectives Section */}
+      <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+            <TargetIcon className="size-4" />
+            Tanjona (Objectifs)
+          </h3>
+          {isProjectLead && (
+            <button
+              onClick={() => setShowObjectiveModal(true)}
+              className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            >
+              <PlusIcon className="size-3" /> Hanampy
+            </button>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        {project.objectives?.length > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-zinc-500 mb-1">
+              <span>Fandrosoana</span>
+              <span>
+                {project.objectives.filter((o) => o.isCompleted).length}/
+                {project.objectives.length} vita
+              </span>
+            </div>
+            <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+              <div
+                className="bg-emerald-500 h-2 rounded-full transition-all"
+                style={{
+                  width: `${
+                    (project.objectives.filter((o) => o.isCompleted).length /
+                      project.objectives.length) *
+                    100
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Objectives list */}
+        <div className="space-y-3">
+          {project.objectives?.map((obj) => (
+            <div
+              key={obj.id}
+              className={`p-3 rounded border ${
+                obj.isCompleted
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                  : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={obj.isCompleted}
+                  onChange={() => handleToggleObjective(obj.id)}
+                  className="mt-1 size-4 rounded accent-emerald-500"
+                />
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`font-medium text-sm ${
+                      obj.isCompleted
+                        ? "line-through text-zinc-500"
+                        : "text-zinc-900 dark:text-white"
+                    }`}
+                  >
+                    {obj.name}
+                  </p>
+                  {obj.description && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      {obj.description}
+                    </p>
+                  )}
+                  {obj.result && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                      <span className="font-medium">Vokatra:</span> {obj.result}
+                    </p>
+                  )}
+                  {obj.risk && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                      <span className="font-medium">Loza:</span> {obj.risk}
+                    </p>
+                  )}
+
+                  {/* Indicators Section */}
+                  {obj.indicators && obj.indicators.length > 0 && (
+                    <div className="mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                        Mari-pandrefesana:
+                      </p>
+                      <div className="space-y-2">
+                        {obj.indicators.map((ind) => {
+                          const progress =
+                            ind.target > 0
+                              ? Math.min(100, (ind.current / ind.target) * 100)
+                              : 0;
+                          const isComplete = ind.current >= ind.target;
+
+                          return (
+                            <div key={ind.id} className="text-xs">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-zinc-700 dark:text-zinc-300">
+                                  {ind.name}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={
+                                      isComplete
+                                        ? "text-emerald-600"
+                                        : "text-zinc-500"
+                                    }
+                                  >
+                                    {ind.current}/{ind.target} {ind.unit}
+                                  </span>
+                                  {isProjectLead && (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={ind.target}
+                                        value={ind.current}
+                                        onChange={(e) =>
+                                          handleUpdateIndicatorValue(
+                                            ind.id,
+                                            parseInt(e.target.value) || 0,
+                                          )
+                                        }
+                                        className="w-14 px-1 py-0.5 text-center rounded border border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 text-xs"
+                                      />
+                                      <button
+                                        onClick={() =>
+                                          handleDeleteIndicator(ind.id)
+                                        }
+                                        className="text-red-500 hover:text-red-700 p-0.5"
+                                      >
+                                        <TrashIcon className="size-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    isComplete
+                                      ? "bg-emerald-500"
+                                      : "bg-blue-500"
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Indicator Button */}
+                  {isProjectLead && (
+                    <button
+                      onClick={() => {
+                        setSelectedObjectiveForIndicator(obj.id);
+                        setShowIndicatorModal(true);
+                      }}
+                      className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      <PlusIcon className="size-3" /> Hanampy mari-pandrefesana
+                    </button>
+                  )}
+                </div>
+                {isProjectLead && (
+                  <button
+                    onClick={() => handleDeleteObjective(obj.id)}
+                    className="text-red-500 hover:text-red-700 p-1"
+                  >
+                    <TrashIcon className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {(!project.objectives || project.objectives.length === 0) && (
+            <p className="text-xs text-zinc-500 text-center py-4">
+              Tsy misy tanjona
+            </p>
           )}
         </div>
       </div>
@@ -731,6 +1066,237 @@ export default function ProjectDetail() {
           </div>
         </div>
       )}
+
+      {/* Objective Creation Modal */}
+      {showObjectiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <TargetIcon className="size-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="font-medium text-zinc-900 dark:text-white">
+                  Hanampy Tanjona
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowObjectiveModal(false);
+                  setNewObjective({
+                    name: "",
+                    description: "",
+                    result: "",
+                    risk: "",
+                  });
+                }}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                  Anarana *
+                </label>
+                <input
+                  type="text"
+                  value={newObjective.name}
+                  onChange={(e) =>
+                    setNewObjective({ ...newObjective, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                  placeholder="Inona no tanjona?"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                  Fanazavana
+                </label>
+                <textarea
+                  value={newObjective.description}
+                  onChange={(e) =>
+                    setNewObjective({
+                      ...newObjective,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                  rows={2}
+                  placeholder="Fanazavana fanampiny..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-emerald-600 dark:text-emerald-400">
+                  Vokatra (Résultat attendu)
+                </label>
+                <textarea
+                  value={newObjective.result}
+                  onChange={(e) =>
+                    setNewObjective({ ...newObjective, result: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded border border-emerald-300 dark:border-emerald-700 dark:bg-zinc-800 text-sm"
+                  rows={2}
+                  placeholder="Inona no vokatra andrasana?"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-orange-600 dark:text-orange-400">
+                  Loza (Risques)
+                </label>
+                <textarea
+                  value={newObjective.risk}
+                  onChange={(e) =>
+                    setNewObjective({ ...newObjective, risk: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded border border-orange-300 dark:border-orange-700 dark:bg-zinc-800 text-sm"
+                  rows={2}
+                  placeholder="Inona avy no loza mety hitranga?"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => {
+                  setShowObjectiveModal(false);
+                  setNewObjective({
+                    name: "",
+                    description: "",
+                    result: "",
+                    risk: "",
+                  });
+                }}
+                className="px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Hiverina
+              </button>
+              <button
+                onClick={handleCreateObjective}
+                disabled={!newObjective.name.trim() || isSubmittingObjective}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50"
+              >
+                {isSubmittingObjective ? (
+                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  <PlusIcon className="size-4" />
+                )}
+                Hampiditra
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Indicator Creation Modal */}
+      {showIndicatorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-sm mx-4 border border-zinc-200 dark:border-zinc-700">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <h3 className="font-medium text-zinc-900 dark:text-white">
+                Hanampy Mari-pandrefesana
+              </h3>
+              <button
+                onClick={() => {
+                  setShowIndicatorModal(false);
+                  setNewIndicator({ name: "", target: 0, unit: "" });
+                  setSelectedObjectiveForIndicator(null);
+                }}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                  Anarana *
+                </label>
+                <input
+                  type="text"
+                  value={newIndicator.name}
+                  onChange={(e) =>
+                    setNewIndicator({ ...newIndicator, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                  placeholder="Ex: Hazo voavoly, Olona nandray anjara..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                    Tanjona (cible)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newIndicator.target}
+                    onChange={(e) =>
+                      setNewIndicator({
+                        ...newIndicator,
+                        target: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                    Singa (unité)
+                  </label>
+                  <input
+                    type="text"
+                    value={newIndicator.unit}
+                    onChange={(e) =>
+                      setNewIndicator({ ...newIndicator, unit: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                    placeholder="Ex: hazo, olona, Ar..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => {
+                  setShowIndicatorModal(false);
+                  setNewIndicator({ name: "", target: 0, unit: "" });
+                  setSelectedObjectiveForIndicator(null);
+                }}
+                className="px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Hiverina
+              </button>
+              <button
+                onClick={handleCreateIndicator}
+                disabled={!newIndicator.name.trim() || isSubmittingIndicator}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50"
+              >
+                {isSubmittingIndicator ? (
+                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  <PlusIcon className="size-4" />
+                )}
+                Hampiditra
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -739,8 +1305,12 @@ export default function ProjectDetail() {
 // - Add project description in the header - OK
 // - Add Ressources needed for the project : - OK
 // - Participation feature from user, guest,
-// - Confirmation bouton within participation ressources
-// - Send email to project (lead, creator) when someone filled his participation form
+// - Confirmation bouton within participation ressources - OK
+// - Show participants list for each ressources - OK
+// - Show material ressources needed with progress bar - OK
+// - Send email to project (lead, creator) when someone filled his participation form - OK
+
+// - Money contribution feature - NOT OK
 
 // - Add objectif section
 // - Add results section

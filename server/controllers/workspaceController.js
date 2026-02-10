@@ -50,6 +50,10 @@ export const getUserWorkspaces = async (req, res) => {
                   },
                 },
                 financialResources: true,
+                objectives: { 
+                  orderBy: { order: "asc" },
+                  include: { indicators: true }
+                },
               },
             },
           },

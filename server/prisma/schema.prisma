@@ -111,12 +111,42 @@ model Project {
     owner     User      @relation("ProjectOwner", fields: [team_lead], references: [id], onDelete: Cascade)
     workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
     tasks     Task[]
+    objectives Objective[]
     
     materialResources     MaterialResource[]
     humanResources        HumanResource[]
     financialResources    FinancialResource[]
     materialContributions MaterialContribution[]
     humanContributions    HumanContribution[]
+}
+
+model Objective {
+    id          String   @id @default(uuid())
+    name        String
+    description String?
+    result      String?  // Vokatra - Résultat attendu
+    risk        String?  // Loza - Risques potentiels
+    isCompleted Boolean  @default(false)
+    order       Int      @default(0)
+    projectId   String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    indicators  ObjectiveIndicator[]
+}
+
+model ObjectiveIndicator {
+    id          String   @id @default(uuid())
+    name        String   // Ex: "Hazo voavoly", "Olona nandray anjara"
+    target      Int      @default(0)  // Tanjona: valeur cible
+    current     Int      @default(0)  // Ankehitriny: valeur actuelle
+    unit        String   @default("") // Unité: "hazo", "olona", "Ar"
+    objectiveId String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    objective   Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
 }
 
 model ProjectMember {
