@@ -12,7 +12,7 @@ import {
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
 import { useDispatch, useSelector } from "react-redux";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import api from "../configs/api.js";
 import { fetchWorkspaces } from "../features/workspaceSlice.js";
@@ -21,10 +21,21 @@ export default function ProjectSettings({ project }) {
   const dispatch = useDispatch();
   // FIX: Destructurer correctement getToken depuis useAuth()
   const { getToken } = useAuth();
+  const { user } = useUser();
 
-  // Récupérer l'utilisateur courant pour vérifier s'il est le lead
-  const currentUser = useSelector((state) => state.workspace?.user);
-  const isProjectLead = project?.team_lead === currentUser?.id;
+  // Récupérer le workspace courant et trouver l'ID de l'utilisateur actuel
+  const currentWorkspace = useSelector(
+    (state) => state.workspace?.currentWorkspace,
+  );
+
+  // Trouver l'utilisateur actuel parmi les membres du workspace via son email
+  const currentMember = currentWorkspace?.members?.find(
+    (m) => m.user?.email === user?.primaryEmailAddress?.emailAddress,
+  );
+  const currentUserId = currentMember?.user?.id;
+
+  // Vérifier si l'utilisateur actuel est le lead du projet
+  const isProjectLead = project?.team_lead === currentUserId;
 
   const [formData, setFormData] = useState({
     name: "New Website Launch",
@@ -78,7 +89,7 @@ export default function ProjectSettings({ project }) {
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      toast.success("Contribution approuvée !");
+      toast.success("Fanampiana nekena soamantsara !");
       // Retirer de la liste et rafraîchir les données
       setPendingContributions((prev) =>
         prev.filter((c) => c.id !== contributionId),
@@ -117,9 +128,15 @@ export default function ProjectSettings({ project }) {
 
   // Charger les contributions au montage
   useEffect(() => {
+    console.log("🔍 Debug ProjectSettings:", {
+      projectTeamLead: project?.team_lead,
+      currentUserId,
+      isProjectLead,
+      userEmail: user?.primaryEmailAddress?.emailAddress,
+    });
     fetchPendingContributions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, isProjectLead]);
+  }, [project?.id, isProjectLead, currentUserId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
