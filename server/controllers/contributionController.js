@@ -46,6 +46,14 @@ export const createMaterialContribution = async (req, res) => {
         project: {
           include: {
             owner: { select: { id: true, name: true, email: true } },
+            workspace: {
+              include: {
+                members: {
+                  where: { role: "ADMIN" },
+                  include: { user: { select: { id: true, name: true, email: true } } },
+                },
+              },
+            },
           },
         },
       },
@@ -94,35 +102,52 @@ export const createMaterialContribution = async (req, res) => {
       },
     });
 
-    // Envoyer un email au lead du projet
+    // Envoyer un email au lead ET aux admins du workspace
     const leadEmail = resource.project.owner.email;
     const leadName = resource.project.owner.name;
     const projectName = resource.project.name;
 
+    // Collecter les emails des admins (excluant le lead s'il est aussi admin)
+    const adminEmails = resource.project.workspace.members
+      .filter((m) => m.user && m.user.email !== leadEmail)
+      .map((m) => m.user.email);
+
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #3b82f6;">📦 Fanolorana materialy vaovao miandry</h2>
+        <p>Miarahaba,</p>
+        <p>Ny Kamarady <strong>${contributor.name}</strong> dia mikasa hanome fanampiana ao amin'ilay tetikasa <strong>${projectName}</strong>.</p>
+        
+        <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0 0 8px 0;"><strong>Ressource:</strong> ${resource.name}</p>
+          <p style="margin: 0 0 8px 0;"><strong>Quantité proposée:</strong> ${numericQuantity}</p>
+          ${message ? `<p style="margin: 0;"><strong>Message:</strong> ${message}</p>` : ""}
+        </div>
+        
+        <p>Jereo mivantana ao amin'ny Ivo-toerana raha ekenao na tsia izany fanampiana izany.</p>
+        
+        <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+          — Francis - RCR Project Management
+        </p>
+      </div>
+    `;
+
     try {
+      // Envoyer au lead
       await sendEmail(
         leadEmail,
-        `[${projectName}] Fanampiana vaovao miandry`,
-        `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #3b82f6;">Fikasàna fanampiana</h2>
-            <p>Miarahaba ${leadName},</p>
-            <p>Ny Kamarady <strong>${contributor.name}</strong> dia mikasa hanome fanampiana ao amin'ilay tetikasa <strong>${projectName}</strong>.</p>
-            
-            <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-              <p style="margin: 0 0 8px 0;"><strong>Ressource:</strong> ${resource.name}</p>
-              <p style="margin: 0 0 8px 0;"><strong>Quantité proposée:</strong> ${numericQuantity}</p>
-              ${message ? `<p style="margin: 0;"><strong>Message:</strong> ${message}</p>` : ""}
-            </div>
-            
-            <p>Jereo mivantana ao amin'ny Ivo-toerana raha ekenao na tsia izany fanampiana izany</p>
-            
-            <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
-              — Francis - RCR Project Management
-            </p>
-          </div>
-        `,
+        `[${projectName}] Fanolorana materialy miandry`,
+        emailContent,
       );
+
+      // Envoyer aux admins
+      for (const adminEmail of adminEmails) {
+        await sendEmail(
+          adminEmail,
+          `[${projectName}] Fanolorana materialy miandry`,
+          emailContent,
+        );
+      }
     } catch (emailError) {
       console.error("Erreur envoi email:", emailError);
       // Continue même si l'email échoue
@@ -177,7 +202,14 @@ export const createFinancialContribution = async (req, res) => {
       where: { id: projectId },
       include: {
         owner: { select: { id: true, name: true, email: true } },
-        workspace: { include: { members: true } },
+        workspace: {
+          include: {
+            members: {
+              where: { role: "ADMIN" },
+              include: { user: { select: { id: true, name: true, email: true } } },
+            },
+          },
+        },
         financialResources: true,
       },
     });
@@ -218,34 +250,50 @@ export const createFinancialContribution = async (req, res) => {
       },
     });
 
-    // Envoyer email au lead du projet
+    // Envoyer email au lead ET aux admins du workspace
     const leadEmail = project.owner.email;
-    const leadName = project.owner.name;
     const projectName = project.name;
 
+    // Collecter les emails des admins (excluant le lead s'il est aussi admin)
+    const adminEmails = project.workspace.members
+      .filter((m) => m.user && m.user.email !== leadEmail)
+      .map((m) => m.user.email);
+
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">💰 Fanohanana ara-bola miandry</h2>
+        <p>Miarahaba,</p>
+        <p>Ny Kamarady <strong>${contributor.name}</strong> dia nandefa fanohanana ara-bola ho an'ny tetikasa <strong>${projectName}</strong>.</p>
+
+        <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0 0 8px 0;"><strong>Vola:</strong> ${numericAmount.toLocaleString()} Ar</p>
+          <p style="margin: 0;"><strong>Reference:</strong> ${reference}</p>
+        </div>
+
+        <p>Azafady hamarino ao amin'ny Ivo-toerana raha voaray.</p>
+
+        <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+          — Francis - RCR Project Management
+        </p>
+      </div>
+    `;
+
     try {
+      // Envoyer au lead
       await sendEmail(
         leadEmail,
-        `[${projectName}] Fanohanana ara-bola vaovao`,
-        `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #10b981;">Fanohanana ara-bola miandry</h2>
-            <p>Miarahaba ${leadName},</p>
-            <p>Ny Kamarady <strong>${contributor.name}</strong> dia nandefa fanohanana ara-bola ho an'ny tetikasa <strong>${projectName}</strong>.</p>
-
-            <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
-              <p style="margin: 0 0 8px 0;"><strong>Vola:</strong> ${numericAmount} Ar</p>
-              <p style="margin: 0;"><strong>Reference:</strong> ${reference}</p>
-            </div>
-
-            <p>Azafady hamarino ao amin'ny Ivo-toerana raha voaray.</p>
-
-            <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
-              — Francis - RCR Project Management
-            </p>
-          </div>
-        `,
+        `[${projectName}] Fanohanana ara-bola miandry`,
+        emailContent,
       );
+
+      // Envoyer aux admins
+      for (const adminEmail of adminEmails) {
+        await sendEmail(
+          adminEmail,
+          `[${projectName}] Fanohanana ara-bola miandry`,
+          emailContent,
+        );
+      }
     } catch (emailError) {
       console.error("Erreur envoi email:", emailError);
     }
@@ -370,6 +418,35 @@ export const approveFinancialContribution = async (req, res) => {
         owned: contribution.amount,
       },
     });
+
+    // Envoyer email de confirmation (accusé de réception) au donateur
+    try {
+      await sendEmail(
+        contribution.contributor.email,
+        `✓ Voaray ny fanampianao ara-bola`,
+        `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #22c55e;">✓ Voaray ny fanampianao</h2>
+            <p>Miarahaba Kamarady ${contribution.contributor.name},</p>
+            <p>Voaray ary nekena ny fanampianao ara-bola ho an'ny tetikasa <strong>${contribution.project.name}</strong>.</p>
+            
+            <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #22c55e;">
+              <p style="margin: 0 0 8px 0;"><strong>Vola:</strong> ${contribution.amount.toLocaleString()} Ar</p>
+              <p style="margin: 0;"><strong>Reference:</strong> ${contribution.reference || "N/A"}</p>
+              <p style="margin: 8px 0 0 0;"><strong>Daty:</strong> ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
+            </div>
+            
+            <p>Misaotra betsaka amin'ny fanohanana !</p>
+            
+            <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+              — Francis - RCR Project Management
+            </p>
+          </div>
+        `,
+      );
+    } catch (emailError) {
+      console.error("Erreur envoi email confirmation:", emailError);
+    }
 
     res.json({
       message: "Fanampiana voamarina",
