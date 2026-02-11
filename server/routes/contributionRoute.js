@@ -5,6 +5,9 @@ import {
   approveContribution,
   rejectContribution,
   getMyContributions,
+  createFinancialContribution,
+  getProjectFinancialContributions,
+  approveFinancialContribution,
   participateHumanResource,
   cancelHumanParticipation,
   getHumanResourceParticipants,
@@ -31,6 +34,20 @@ router.put("/:id/approve", approveContribution);
 
 // Rejeter une contribution (Lead uniquement)
 router.put("/:id/reject", rejectContribution);
+
+// ============================================================
+// FINANCIAL CONTRIBUTION ROUTES
+// Gestion des contributions financières
+// ============================================================
+
+// Créer une contribution financière
+router.post("/financial", createFinancialContribution);
+
+// Récupérer les contributions financières d'un projet
+router.get("/financial/project/:projectId", getProjectFinancialContributions);
+
+// Approuver une contribution financière
+router.put("/financial/:id/approve", approveFinancialContribution);
 
 // ============================================================
 // HUMAN CONTRIBUTION ROUTES

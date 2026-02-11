@@ -50,6 +50,13 @@ export default function ProjectDetail() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFinancialModal, setShowFinancialModal] = useState(false);
+  const [financialDonation, setFinancialDonation] = useState({
+    amount: "",
+    reference: "",
+  });
+  const [financialContributions, setFinancialContributions] = useState([]);
+  const [isSubmittingFinancial, setIsSubmittingFinancial] = useState(false);
 
   // Human resource participation state
   const [selectedHumanResource, setSelectedHumanResource] = useState(null);
@@ -77,6 +84,8 @@ export default function ProjectDetail() {
     unit: "",
   });
   const [isSubmittingIndicator, setIsSubmittingIndicator] = useState(false);
+  const [selectedIndicator, setSelectedIndicator] = useState(null);
+  const [indicatorDraft, setIndicatorDraft] = useState(0);
 
   // Get current workspace to find current user ID
   const currentWorkspace = useSelector(
@@ -99,6 +108,24 @@ export default function ProjectDetail() {
     }
   }, [id, projects]);
 
+  useEffect(() => {
+    const loadFinancialContributions = async () => {
+      if (!id) return;
+      try {
+        const token = await getToken();
+        const { data } = await api.get(
+          `/api/contributions/financial/project/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        setFinancialContributions(data || []);
+      } catch (error) {
+        console.error("Erreur contributions financières:", error);
+      }
+    };
+
+    loadFinancialContributions();
+  }, [getToken, id]);
+
   const statusColors = {
     PLANNING: "bg-zinc-200 text-zinc-900 dark:bg-zinc-600 dark:text-zinc-200",
     ACTIVE:
@@ -111,6 +138,31 @@ export default function ProjectDetail() {
 
   // Check if current user is project lead
   const isProjectLead = project?.team_lead === currentUserId;
+  const isWorkspaceAdmin = currentMember?.role === "ADMIN";
+  const isOrgAdmin = ["ADMIN", "org:admin"].includes(
+    currentMember?.user?.role || "",
+  );
+  const isAdmin = isWorkspaceAdmin || isOrgAdmin;
+  const canEditIndicator = isProjectLead || isAdmin;
+  const canApproveFinancial = isProjectLead || isAdmin;
+
+  const totalFinancialNeeded = project?.financialResources?.reduce(
+    (acc, r) => acc + (r.amount || 0),
+    0,
+  );
+  const totalFinancialOwned = project?.financialResources?.reduce(
+    (acc, r) => acc + (r.owned || 0),
+    0,
+  );
+  const totalFinancialPending = financialContributions
+    .filter((c) => c.status === "PENDING")
+    .reduce((acc, c) => acc + Number(c.amount || 0), 0);
+  const remainingFinancialNeeded = Math.max(
+    0,
+    (totalFinancialNeeded || 0) -
+      (totalFinancialOwned || 0) -
+      totalFinancialPending,
+  );
 
   // Objective functions
   const handleCreateObjective = async () => {
@@ -470,42 +522,162 @@ export default function ProjectDetail() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-zinc-500">Ilaina :</span>
-                <span>
-                  {project.financialResources
-                    .reduce((acc, r) => acc + r.amount, 0)
-                    .toLocaleString()}{" "}
-                  Ar
-                </span>
+                <span>{(totalFinancialNeeded || 0).toLocaleString()} Ar</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Efa Hanana:</span>
                 <span className="text-emerald-600 dark:text-emerald-400">
-                  {project.financialResources
-                    .reduce((acc, r) => acc + r.owned, 0)
-                    .toLocaleString()}{" "}
-                  Ar
+                  {(totalFinancialOwned || 0).toLocaleString()} Ar
                 </span>
               </div>
+              {remainingFinancialNeeded > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Mbola ilaina:</span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {remainingFinancialNeeded.toLocaleString()} Ar
+                  </span>
+                </div>
+              )}
+              {/* Section Fanolorana Miandry - pour le lead/admin */}
+              {canApproveFinancial &&
+                financialContributions.filter((c) => c.status === "PENDING")
+                  .length > 0 && (
+                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
+                      Fanolorana miandry
+                    </p>
+                    <div className="space-y-2">
+                      {financialContributions
+                        .filter((c) => c.status === "PENDING")
+                        .map((donation, idx) => (
+                          <div
+                            key={donation.id || `pending-${idx}`}
+                            className="flex items-center justify-between text-xs bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-700"
+                          >
+                            <div>
+                              <span className="text-zinc-700 dark:text-zinc-300">
+                                {donation.contributor?.name || "Mpikambana"}
+                              </span>
+                              <span className="text-zinc-500 mx-1">|</span>
+                              <span className="font-medium text-zinc-900 dark:text-white">
+                                {donation.amount.toLocaleString()} Ar
+                              </span>
+                              {donation.reference && (
+                                <span className="text-zinc-400 ml-2 text-[10px]">
+                                  (Ref: {donation.reference})
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = await getToken();
+                                  await api.put(
+                                    `/api/contributions/financial/${donation.id}/approve`,
+                                    {},
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                    },
+                                  );
+                                  const { data } = await api.get(
+                                    `/api/contributions/financial/project/${id}`,
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                    },
+                                  );
+                                  setFinancialContributions(data || []);
+                                  dispatch(fetchWorkspaces(token));
+                                  toast.success("Fanampiana voamarina");
+                                } catch (error) {
+                                  toast.error(
+                                    error?.response?.data?.message ||
+                                      "Tsy nahomby",
+                                  );
+                                }
+                              }}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded font-medium"
+                            >
+                              Hamarina
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              {/* Section Voaray - contributions approuvées */}
+              {financialContributions.filter((c) => c.status === "APPROVED")
+                .length > 0 && (
+                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
+                    Voaray
+                  </p>
+                  <div className="space-y-1">
+                    {financialContributions
+                      .filter((c) => c.status === "APPROVED")
+                      .map((donation, idx) => (
+                        <div
+                          key={donation.id || `approved-${idx}`}
+                          className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400"
+                        >
+                          <span>
+                            {donation.contributor?.name || "Mpikambana"} |{" "}
+                            {donation.amount.toLocaleString()} Ar
+                          </span>
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            ✓
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {/* Pour les membres non-lead: afficher leurs contributions en attente */}
+              {!canApproveFinancial &&
+                financialContributions.filter((c) => c.status === "PENDING")
+                  .length > 0 && (
+                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
+                      Eo am-pamarinana
+                    </p>
+                    <div className="space-y-1">
+                      {financialContributions
+                        .filter((c) => c.status === "PENDING")
+                        .map((donation, idx) => (
+                          <div
+                            key={donation.id || `pending-member-${idx}`}
+                            className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400"
+                          >
+                            <span>
+                              {donation.contributor?.name || "Mpikambana"} |{" "}
+                              {donation.amount.toLocaleString()} Ar
+                            </span>
+                            <span className="text-amber-500">⏳</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
                 <div
                   className="bg-emerald-500 h-2 rounded-full"
                   style={{
                     width: `${Math.min(
                       100,
-                      (project.financialResources.reduce(
-                        (acc, r) => acc + r.owned,
-                        0,
-                      ) /
-                        project.financialResources.reduce(
-                          (acc, r) => acc + r.amount,
-                          0,
-                        )) *
-                        100 || 0,
+                      ((totalFinancialOwned || 0) /
+                        (totalFinancialNeeded || 1)) *
+                        100,
                     )}%`,
                   }}
                 ></div>
               </div>
-              <button className="w-full mt-3 text-xs px-3 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-medium">
+              <button
+                onClick={() => setShowFinancialModal(true)}
+                className="w-full mt-3 text-xs px-3 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-medium"
+              >
                 Hanohana ara-bola
               </button>
             </div>
@@ -631,21 +803,17 @@ export default function ProjectDetail() {
                                   >
                                     {ind.current}/{ind.target} {ind.unit}
                                   </span>
-                                  {isProjectLead && (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max={ind.target}
-                                        value={ind.current}
-                                        onChange={(e) =>
-                                          handleUpdateIndicatorValue(
-                                            ind.id,
-                                            parseInt(e.target.value) || 0,
-                                          )
-                                        }
-                                        className="w-14 px-1 py-0.5 text-center rounded border border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 text-xs"
-                                      />
+                                  {canEditIndicator && (
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedIndicator(ind);
+                                          setIndicatorDraft(ind.current);
+                                        }}
+                                        className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                                      >
+                                        Ovaina
+                                      </button>
                                       <button
                                         onClick={() =>
                                           handleDeleteIndicator(ind.id)
@@ -676,7 +844,7 @@ export default function ProjectDetail() {
                   )}
 
                   {/* Add Indicator Button */}
-                  {isProjectLead && (
+                  {canEditIndicator && (
                     <button
                       onClick={() => {
                         setSelectedObjectiveForIndicator(obj.id);
@@ -688,7 +856,7 @@ export default function ProjectDetail() {
                     </button>
                   )}
                 </div>
-                {isProjectLead && (
+                {canEditIndicator && (
                   <button
                     onClick={() => handleDeleteObjective(obj.id)}
                     className="text-red-500 hover:text-red-700 p-1"
@@ -766,6 +934,177 @@ export default function ProjectDetail() {
           setShowCreateTask={setShowCreateTask}
           projectId={id}
         />
+      )}
+
+      {showFinancialModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <div>
+                <h3 className="font-medium text-zinc-900 dark:text-white text-sm">
+                  Fanohanana ara-bola
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Azafady alefaso amin'ny nomeraon'ny mpitahiry vola.
+                </p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1">
+                  {project?.treasurerName || "Tsy misy anarana"} •{" "}
+                  {project?.treasurerPhone || "Tsy misy nomerao"}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFinancialModal(false)}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                  Montant nalefa (Ar) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={financialDonation.amount}
+                  onChange={(e) =>
+                    setFinancialDonation({
+                      ...financialDonation,
+                      amount: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                  Reference transfert *
+                </label>
+                <input
+                  type="text"
+                  value={financialDonation.reference}
+                  onChange={(e) =>
+                    setFinancialDonation({
+                      ...financialDonation,
+                      reference: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => setShowFinancialModal(false)}
+                className="px-3 py-1.5 text-xs rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                Hiverina
+              </button>
+              <button
+                disabled={isSubmittingFinancial}
+                onClick={async () => {
+                  const amountValue = parseFloat(financialDonation.amount);
+                  if (!amountValue || amountValue <= 0) {
+                    toast.error("Ampidiro ny montant nalefa.");
+                    return;
+                  }
+                  if (!financialDonation.reference.trim()) {
+                    toast.error("Ampidiro ny reference transfert.");
+                    return;
+                  }
+                  setIsSubmittingFinancial(true);
+                  try {
+                    const token = await getToken();
+                    await api.post(
+                      "/api/contributions/financial",
+                      {
+                        projectId: id,
+                        amount: amountValue,
+                        reference: financialDonation.reference.trim(),
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    const { data } = await api.get(
+                      `/api/contributions/financial/project/${id}`,
+                      { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    setFinancialContributions(data || []);
+                    setFinancialDonation({ amount: "", reference: "" });
+                    setShowFinancialModal(false);
+                    // Rafraîchir les données du projet
+                    dispatch(fetchWorkspaces(token));
+                    toast.success(
+                      "Fanampiana nalefa - miandry fanamarinana avy amin'ny lead",
+                    );
+                  } catch (error) {
+                    toast.error(
+                      error?.response?.data?.message || "Nisy olana nitranga",
+                    );
+                  } finally {
+                    setIsSubmittingFinancial(false);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+              >
+                {isSubmittingFinancial ? "Eo am-pandefasana..." : "Hamarina"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedIndicator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-sm mx-4 border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+              <h3 className="font-medium text-zinc-900 dark:text-white text-sm">
+                Ovaina mari-pandrefesana
+              </h3>
+              <button
+                onClick={() => setSelectedIndicator(null)}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <label className="block text-xs font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+                {selectedIndicator.name}
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={selectedIndicator.target}
+                value={indicatorDraft}
+                onChange={(e) =>
+                  setIndicatorDraft(parseInt(e.target.value) || 0)
+                }
+                className="w-full px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
+              <button
+                onClick={() => setSelectedIndicator(null)}
+                className="px-3 py-1.5 text-xs rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                Hiverina
+              </button>
+              <button
+                onClick={() => {
+                  handleUpdateIndicatorValue(
+                    selectedIndicator.id,
+                    indicatorDraft,
+                  );
+                  setSelectedIndicator(null);
+                }}
+                className="px-3 py-1.5 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Ovaina
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Material Resource Contribution Dialog */}
@@ -1021,7 +1360,7 @@ export default function ProjectDetail() {
                 onClick={() => setSelectedHumanResource(null)}
                 className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
               >
-                Hanafoana
+                Hiverina
               </button>
               <button
                 disabled={isSubmittingHuman}

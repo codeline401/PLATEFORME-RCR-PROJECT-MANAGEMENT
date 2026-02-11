@@ -15,6 +15,15 @@ export const createMaterialContribution = async (req, res) => {
     const userId = req.userId;
     const { resourceId, projectId, quantity, message } = req.body;
 
+    console.log("📦 createMaterialContribution - Données reçues:", {
+      userId,
+      resourceId,
+      projectId,
+      quantity,
+      quantityType: typeof quantity,
+      message,
+    });
+
     // Validation des champs obligatoires
     if (!resourceId || !projectId || !quantity) {
       return res.status(400).json({
@@ -22,7 +31,9 @@ export const createMaterialContribution = async (req, res) => {
       });
     }
 
-    if (quantity < 1) {
+    // Convertir quantity en nombre
+    const numericQuantity = parseInt(quantity, 10);
+    if (isNaN(numericQuantity) || numericQuantity < 1) {
       return res.status(400).json({
         message: "Tokony misy isa 1 farafahakeliny ny fanampiana atolotrao",
       });
@@ -46,11 +57,18 @@ export const createMaterialContribution = async (req, res) => {
       });
     }
 
-    // Récupérer les infos du contributeur
-    const contributor = await prisma.user.findUnique({
+    // Récupérer les infos du contributeur - chercher par id ou clerkId
+    let contributor = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true },
     });
+
+    if (!contributor) {
+      contributor = await prisma.user.findUnique({
+        where: { clerkId: userId },
+        select: { id: true, name: true, email: true },
+      });
+    }
 
     if (!contributor) {
       return res.status(404).json({
@@ -59,34 +77,33 @@ export const createMaterialContribution = async (req, res) => {
     }
 
     // Vérifier si le contributeur est le Lead du projet
-    const isLead = resource.project.owner.id === userId;
+    const isLead = resource.project.owner.id === contributor.id;
 
     if (isLead) {
       // ========== CAS LEAD : Auto-approbation ==========
-      // Transaction: créer contribution approuvée + mettre à jour la ressource
-      const [contribution, updatedResource] = await prisma.$transaction([
-        prisma.materialContribution.create({
-          data: {
-            quantity,
-            message: message || null,
-            resourceId,
-            projectId,
-            contributorId: userId,
-            status: "APPROVED", // Auto-approuvé
-          },
-          include: {
-            resource: true,
-            contributor: { select: { id: true, name: true, email: true } },
-            project: { select: { id: true, name: true } },
-          },
-        }),
-        prisma.materialResource.update({
-          where: { id: resourceId },
-          data: {
-            owned: { increment: quantity },
-          },
-        }),
-      ]);
+      // Créer contribution approuvée puis mettre à jour la ressource (séquentiel pour éviter timeout transaction)
+      const contribution = await prisma.materialContribution.create({
+        data: {
+          quantity: numericQuantity,
+          message: message || null,
+          resourceId,
+          projectId,
+          contributorId: contributor.id,
+          status: "APPROVED", // Auto-approuvé
+        },
+        include: {
+          resource: true,
+          contributor: { select: { id: true, name: true, email: true } },
+          project: { select: { id: true, name: true } },
+        },
+      });
+
+      const updatedResource = await prisma.materialResource.update({
+        where: { id: resourceId },
+        data: {
+          owned: { increment: numericQuantity },
+        },
+      });
 
       return res.status(201).json({
         message: "Contribution enregistrée (auto-approuvée)",
@@ -100,11 +117,11 @@ export const createMaterialContribution = async (req, res) => {
     // Créer la contribution en PENDING
     const contribution = await prisma.materialContribution.create({
       data: {
-        quantity,
+        quantity: numericQuantity,
         message: message || null,
         resourceId,
         projectId,
-        contributorId: userId,
+        contributorId: contributor.id,
         status: "PENDING",
       },
       include: {
@@ -131,7 +148,7 @@ export const createMaterialContribution = async (req, res) => {
             
             <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
               <p style="margin: 0 0 8px 0;"><strong>Ressource:</strong> ${resource.name}</p>
-              <p style="margin: 0 0 8px 0;"><strong>Quantité proposée:</strong> ${quantity}</p>
+              <p style="margin: 0 0 8px 0;"><strong>Quantité proposée:</strong> ${numericQuantity}</p>
               ${message ? `<p style="margin: 0;"><strong>Message:</strong> ${message}</p>` : ""}
             </div>
             
@@ -154,8 +171,251 @@ export const createMaterialContribution = async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur createMaterialContribution:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({
       message: "Erreur lors de la création de la contribution",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Créer une contribution financière (status: PENDING)
+ * POST /api/contributions/financial
+ */
+export const createFinancialContribution = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { projectId, amount, reference } = req.body;
+
+    console.log("📦 createFinancialContribution - Données reçues:", {
+      userId,
+      projectId,
+      amount,
+      reference,
+      amountType: typeof amount,
+    });
+
+    if (!projectId || !amount || !reference) {
+      return res.status(400).json({
+        message: "projectId, amount et reference sont obligatoires",
+      });
+    }
+
+    // Convertir amount en nombre
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        message: "Tokony misy vola 1 farafahakeliny",
+      });
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        workspace: { include: { members: true } },
+        financialResources: true,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: "Tsy hita io tetikasa io" });
+    }
+
+    // Recherche utilisateur par id (Clerk ID utilisé comme id) OU par clerkId
+    let contributor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!contributor) {
+      contributor = await prisma.user.findUnique({
+        where: { clerkId: userId },
+        select: { id: true, name: true, email: true },
+      });
+    }
+
+    if (!contributor) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Toutes les contributions commencent en PENDING
+    // Le lead/admin doit confirmer la réception manuellement
+    const contribution = await prisma.financialContribution.create({
+      data: {
+        projectId,
+        amount: numericAmount,
+        reference,
+        contributorId: contributor.id,
+        status: "PENDING",
+      },
+      include: {
+        contributor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    // Envoyer email au lead du projet
+    const leadEmail = project.owner.email;
+    const leadName = project.owner.name;
+    const projectName = project.name;
+
+    try {
+      await sendEmail(
+        leadEmail,
+        `[${projectName}] Fanohanana ara-bola vaovao`,
+        `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #10b981;">Fanohanana ara-bola miandry</h2>
+            <p>Miarahaba ${leadName},</p>
+            <p>Ny Kamarady <strong>${contributor.name}</strong> dia nandefa fanohanana ara-bola ho an'ny tetikasa <strong>${projectName}</strong>.</p>
+
+            <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+              <p style="margin: 0 0 8px 0;"><strong>Vola:</strong> ${numericAmount} Ar</p>
+              <p style="margin: 0;"><strong>Reference:</strong> ${reference}</p>
+            </div>
+
+            <p>Azafady hamarino ao amin'ny Ivo-toerana raha voaray.</p>
+
+            <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
+              — Francis - RCR Project Management
+            </p>
+          </div>
+        `,
+      );
+    } catch (emailError) {
+      console.error("Erreur envoi email:", emailError);
+    }
+
+    return res.status(201).json({
+      message: "Fanampiana nalefa - miandry famafazana",
+      contribution,
+      autoApproved: false,
+    });
+  } catch (error) {
+    console.error("Erreur createFinancialContribution:", error);
+    console.error("Stack trace:", error.stack);
+    return res.status(500).json({
+      message: "Erreur lors de la création de la contribution financière",
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+};
+
+/**
+ * Récupérer les contributions financières d'un projet
+ * GET /api/contributions/financial/project/:projectId
+ */
+export const getProjectFinancialContributions = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { status } = req.query;
+
+    const whereClause = { projectId };
+    if (status) {
+      whereClause.status = status;
+    }
+
+    const contributions = await prisma.financialContribution.findMany({
+      where: whereClause,
+      include: {
+        contributor: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(contributions);
+  } catch (error) {
+    console.error("Erreur getProjectFinancialContributions:", error);
+    res.status(500).json({
+      message: "Erreur lors de la récupération des contributions financières",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Approuver une contribution financière (Lead/Admin)
+ * PUT /api/contributions/financial/:id/approve
+ */
+export const approveFinancialContribution = async (req, res) => {
+  try {
+    const clerkUserId = req.userId;
+    const { id } = req.params;
+
+    // Recherche utilisateur par id (Clerk ID) OU par clerkId
+    let currentUser = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!currentUser) {
+      currentUser = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!currentUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    const contribution = await prisma.financialContribution.findUnique({
+      where: { id },
+      include: {
+        project: {
+          include: {
+            workspace: { include: { members: true } },
+          },
+        },
+        contributor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!contribution) {
+      return res.status(404).json({ message: "Tsy hita io fanampiana io" });
+    }
+
+    const isLead = contribution.project.team_lead === currentUser.id;
+    const isAdmin = contribution.project.workspace.members.some(
+      (member) => member.userId === currentUser.id && member.role === "ADMIN",
+    );
+
+    if (!isLead && !isAdmin) {
+      return res.status(403).json({
+        message: "Tsy manana alalana ianao hanamarina io fanampiana io",
+      });
+    }
+
+    if (contribution.status !== "PENDING") {
+      return res.status(400).json({
+        message: "Efa voamarina na nolavina io fanampiana io",
+      });
+    }
+
+    // Mise à jour séquentielle pour éviter timeout transaction avec Neon
+    const updatedContribution = await prisma.financialContribution.update({
+      where: { id },
+      data: { status: "APPROVED" },
+    });
+
+    await prisma.financialResource.upsert({
+      where: { projectId: contribution.projectId },
+      update: { owned: { increment: contribution.amount } },
+      create: {
+        projectId: contribution.projectId,
+        amount: 0,
+        owned: contribution.amount,
+      },
+    });
+
+    res.json({
+      message: "Fanampiana voamarina",
+      contribution: updatedContribution,
+    });
+  } catch (error) {
+    console.error("Erreur approveFinancialContribution:", error);
+    res.status(500).json({
+      message: "Erreur lors de la validation de la contribution",
       error: error.message,
     });
   }
@@ -204,8 +464,23 @@ export const getProjectContributions = async (req, res) => {
  */
 export const approveContribution = async (req, res) => {
   try {
-    const userId = req.userId;
+    const clerkUserId = req.userId;
     const { id } = req.params;
+
+    // Chercher l'utilisateur par id ou clerkId
+    let currentUser = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!currentUser) {
+      currentUser = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!currentUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
 
     // Récupérer la contribution avec les infos du projet
     const contribution = await prisma.materialContribution.findUnique({
@@ -228,7 +503,7 @@ export const approveContribution = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur est le lead du projet
-    if (contribution.project.team_lead !== userId) {
+    if (contribution.project.team_lead !== currentUser.id) {
       return res.status(403).json({
         message:
           "Ny mpandrindra ny tetikasa ihany no afaka manaiky na tsia ny fanampiana",
@@ -242,23 +517,22 @@ export const approveContribution = async (req, res) => {
       });
     }
 
-    // Transaction: mettre à jour la contribution ET la ressource
-    const [updatedContribution, updatedResource] = await prisma.$transaction([
-      prisma.materialContribution.update({
-        where: { id },
-        data: { status: "APPROVED" },
-        include: {
-          resource: true,
-          contributor: { select: { id: true, name: true, email: true } },
-        },
-      }),
-      prisma.materialResource.update({
-        where: { id: contribution.resourceId },
-        data: {
-          owned: { increment: contribution.quantity },
-        },
-      }),
-    ]);
+    // Mise à jour séquentielle pour éviter timeout transaction avec Neon
+    const updatedContribution = await prisma.materialContribution.update({
+      where: { id },
+      data: { status: "APPROVED" },
+      include: {
+        resource: true,
+        contributor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const updatedResource = await prisma.materialResource.update({
+      where: { id: contribution.resourceId },
+      data: {
+        owned: { increment: contribution.quantity },
+      },
+    });
 
     // Envoyer un email de confirmation au contributeur
     try {
@@ -308,9 +582,24 @@ export const approveContribution = async (req, res) => {
  */
 export const rejectContribution = async (req, res) => {
   try {
-    const userId = req.userId;
+    const clerkUserId = req.userId;
     const { id } = req.params;
     const { reason } = req.body; // Raison optionnelle du rejet
+
+    // Chercher l'utilisateur par id ou clerkId
+    let currentUser = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!currentUser) {
+      currentUser = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!currentUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
 
     // Récupérer la contribution
     const contribution = await prisma.materialContribution.findUnique({
@@ -333,7 +622,7 @@ export const rejectContribution = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur est le lead
-    if (contribution.project.team_lead !== userId) {
+    if (contribution.project.team_lead !== currentUser.id) {
       return res.status(403).json({
         message: "Seul le responsable du projet peut rejeter les contributions",
       });
@@ -364,8 +653,8 @@ export const rejectContribution = async (req, res) => {
         `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #ef4444;">Contribution non retenue</h2>
-            <p>Bonjour ${contribution.contributor.name},</p>
-            <p>Votre proposition de contribution au projet <strong>${contribution.project.name}</strong> n'a pas été retenue.</p>
+            <p>Salama Kamarady ${contribution.contributor.name},</p>
+            <p>Tsy voaray ny fanampiana <strong>${contribution.project.name}</strong> kasainao atolotra</p>
             
             <div style="background: #fef2f2; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #ef4444;">
               <p style="margin: 0 0 8px 0;"><strong>Ressource:</strong> ${contribution.resource.name}</p>
@@ -373,10 +662,10 @@ export const rejectContribution = async (req, res) => {
               ${reason ? `<p style="margin: 8px 0 0 0;"><strong>Raison:</strong> ${reason}</p>` : ""}
             </div>
             
-            <p>Merci pour votre intérêt pour ce projet.</p>
+            <p>Misaotra betsaka ny amin'ny fandraisanao anjara. Jereo ireo tetikasa hafa izay mbola mila fanampiana.</p>
             
             <p style="color: #71717a; font-size: 12px; margin-top: 32px;">
-              — L'équipe RCR Project Management
+              Francis — L'équipe RCR Project Management
             </p>
           </div>
         `,
@@ -404,10 +693,25 @@ export const rejectContribution = async (req, res) => {
  */
 export const getMyContributions = async (req, res) => {
   try {
-    const userId = req.userId;
+    const clerkUserId = req.userId;
+
+    // Chercher l'utilisateur par id ou clerkId
+    let user = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
 
     const contributions = await prisma.materialContribution.findMany({
-      where: { contributorId: userId },
+      where: { contributorId: user.id },
       include: {
         resource: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
@@ -468,26 +772,33 @@ export const participateHumanResource = async (req, res) => {
       });
     }
 
-    // Vérifier si l'utilisateur participe déjà
-    const alreadyParticipating = resource.participants.some(
-      (p) => p.participant.id === userId,
-    );
-
-    if (alreadyParticipating) {
-      return res.status(400).json({
-        message: "Efa nirotsaka tamin'ity andraikitra ity ianao",
-      });
-    }
-
-    // Récupérer les infos du participant
-    const participant = await prisma.user.findUnique({
+    // Récupérer les infos du participant - chercher par id ou clerkId
+    let participant = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true },
     });
 
     if (!participant) {
+      participant = await prisma.user.findUnique({
+        where: { clerkId: userId },
+        select: { id: true, name: true, email: true },
+      });
+    }
+
+    if (!participant) {
       return res.status(404).json({
         message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Vérifier si l'utilisateur participe déjà
+    const alreadyParticipating = resource.participants.some(
+      (p) => p.participant.id === participant.id,
+    );
+
+    if (alreadyParticipating) {
+      return res.status(400).json({
+        message: "Efa nirotsaka tamin'ity andraikitra ity ianao",
       });
     }
 
@@ -497,7 +808,7 @@ export const participateHumanResource = async (req, res) => {
         message: message || null,
         resourceId,
         projectId,
-        participantId: userId,
+        participantId: participant.id,
       },
       include: {
         resource: true,
@@ -511,7 +822,7 @@ export const participateHumanResource = async (req, res) => {
     const projectName = resource.project.name;
     const leadEmail = resource.project.owner.email;
     const leadName = resource.project.owner.name;
-    const isLead = resource.project.owner.id === userId;
+    const isLead = resource.project.owner.id === participant.id;
 
     // Email au participant
     try {
@@ -590,12 +901,27 @@ export const participateHumanResource = async (req, res) => {
  */
 export const cancelHumanParticipation = async (req, res) => {
   try {
-    const userId = req.userId;
+    const clerkUserId = req.userId;
     const { id } = req.params;
+
+    // Chercher l'utilisateur par id ou clerkId
+    let user = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
 
     // Vérifier que la participation existe et appartient à l'utilisateur
     const contribution = await prisma.humanContribution.findFirst({
-      where: { id, participantId: userId },
+      where: { id, participantId: user.id },
       include: {
         resource: true,
         project: { select: { id: true, name: true } },

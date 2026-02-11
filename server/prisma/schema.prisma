@@ -61,6 +61,7 @@ model User {
     ProjectMember          ProjectMember[]
     materialContributions  MaterialContribution[] @relation("MaterialContributor")
     humanContributions     HumanContribution[]    @relation("HumanContributor")
+    financialContributions FinancialContribution[] @relation("FinancialContributor")
 }
 
 model Workspace {
@@ -104,6 +105,8 @@ model Project {
     team_lead   String
     workspaceId String
     progress    Int             @default(0)
+    treasurerName  String?
+    treasurerPhone String?
     createdAt   DateTime        @default(now())
     updatedAt   DateTime        @updatedAt
     members     ProjectMember[]
@@ -118,6 +121,7 @@ model Project {
     financialResources    FinancialResource[]
     materialContributions MaterialContribution[]
     humanContributions    HumanContribution[]
+    financialContributions FinancialContribution[]
 }
 
 model Objective {
@@ -263,6 +267,24 @@ model HumanContribution {
     @@index([participantId])
 }
 
+model FinancialContribution {
+    id            String             @id @default(uuid())
+    amount        Float
+    reference     String
+    status        ContributionStatus @default(PENDING)
+    createdAt     DateTime           @default(now())
+    updatedAt     DateTime           @updatedAt
+
+    projectId     String
+    project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    contributorId String
+    contributor   User               @relation("FinancialContributor", fields: [contributorId], references: [id], onDelete: Cascade)
+
+    @@index([projectId])
+    @@index([contributorId])
+    @@index([status])
+}
+
 model FinancialResource {
     id String @id @default(uuid())
     projectId String
@@ -272,4 +294,6 @@ model FinancialResource {
     updatedAt DateTime @updatedAt
 
     project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    @@unique([projectId])
 }

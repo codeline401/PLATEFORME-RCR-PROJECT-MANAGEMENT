@@ -46,6 +46,8 @@ export default function ProjectSettings({ project }) {
     end_date: "2025-10-15",
     progress: 30,
     isPublic: false,
+    treasurerName: "",
+    treasurerPhone: "",
     materialResources: [],
     humanResources: [],
     financialResources: [],
@@ -140,6 +142,19 @@ export default function ProjectSettings({ project }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const hasFinancialResource =
+      (formData.financialResources?.[0]?.amount || 0) > 0 ||
+      (formData.financialResources?.[0]?.owned || 0) > 0;
+    if (hasFinancialResource) {
+      if (!formData.treasurerName?.trim()) {
+        toast.error("Ampidiro ny anaran'ny mpitahiry vola.");
+        return;
+      }
+      if (!formData.treasurerPhone?.trim()) {
+        toast.error("Ampidiro ny nomeraon-telefaona.");
+        return;
+      }
+    }
     setIsSubmitting(true);
     toast.loading("Eo ampanovana...");
     try {
@@ -187,6 +202,8 @@ export default function ProjectSettings({ project }) {
         materialResources: project.materialResources || [],
         humanResources: project.humanResources || [],
         financialResources: project.financialResources || [],
+        treasurerName: project.treasurerName || "",
+        treasurerPhone: project.treasurerPhone || "",
       };
       setFormData(formattedProject);
     }
@@ -199,6 +216,10 @@ export default function ProjectSettings({ project }) {
     "rounded-lg border p-6 not-dark:bg-white dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border-zinc-300 dark:border-zinc-800";
 
   const labelClasses = "text-sm text-zinc-600 dark:text-zinc-400";
+
+  const hasFinancialResource =
+    (formData.financialResources?.[0]?.amount || 0) > 0 ||
+    (formData.financialResources?.[0]?.owned || 0) > 0;
 
   return (
     <div className="grid lg:grid-cols-2 gap-8">
@@ -427,7 +448,10 @@ export default function ProjectSettings({ project }) {
                 onClick={() =>
                   setFormData({
                     ...formData,
-                    humanResources: [...formData.humanResources, { name: "", needed: 1 }],
+                    humanResources: [
+                      ...formData.humanResources,
+                      { name: "", needed: 1 },
+                    ],
                   })
                 }
                 className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
@@ -528,6 +552,53 @@ export default function ProjectSettings({ project }) {
                       ],
                     });
                   }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <label className="block text-sm font-medium mb-2">
+              Mpitahiry vola
+            </label>
+            {!hasFinancialResource && (
+              <p className="text-xs text-zinc-500 mb-2">
+                Tsy voatery raha tsy misy vola ilaina.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Anarana
+                </label>
+                <input
+                  type="text"
+                  value={formData.treasurerName}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      treasurerName: e.target.value,
+                    })
+                  }
+                  required={hasFinancialResource}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Nomeraon-telefaona
+                </label>
+                <input
+                  type="tel"
+                  value={formData.treasurerPhone}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      treasurerPhone: e.target.value,
+                    })
+                  }
+                  required={hasFinancialResource}
                   className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
                 />
               </div>

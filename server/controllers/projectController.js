@@ -24,6 +24,8 @@ export const createProject = async (req, res) => {
       progress,
       priority,
       isPublic = true,
+      treasurerName,
+      treasurerPhone,
       // Ressources
       materialResources = [],
       humanResources = [],
@@ -40,6 +42,22 @@ export const createProject = async (req, res) => {
     console.log(`  ✓ userId: ${userId}`);
     console.log(`  ✓ workspaceId: ${workspaceId}`);
     console.log(`  ✓ name: ${name}`);
+
+    const normalizedTreasurerName =
+      typeof treasurerName === "string" ? treasurerName.trim() : "";
+    const normalizedTreasurerPhone =
+      typeof treasurerPhone === "string" ? treasurerPhone.trim() : "";
+    const hasFinancialResource =
+      (financialResources?.needed || 0) > 0 ||
+      (financialResources?.owned || 0) > 0;
+    if (hasFinancialResource) {
+      if (!normalizedTreasurerName || !normalizedTreasurerPhone) {
+        return res.status(400).json({
+          message:
+            "Ampidiro ny nomeraon-telefaona sy anaran'ny mpitahiry vola raha misy vola ilaina.",
+        });
+      }
+    }
 
     // ========== 2. VÉRIFICATION DU WORKSPACE ==========
     console.log("📝 STEP 2: Vérification du workspace");
@@ -111,6 +129,8 @@ export const createProject = async (req, res) => {
         priority: priority || "MEDIUM",
         isPublic: isPublic !== false, // true par défaut
         team_lead: finalTeamLead, // ✅ Utiliser team_lead (String), pas owner (relation)
+        treasurerName: normalizedTreasurerName || null,
+        treasurerPhone: normalizedTreasurerPhone || null,
       },
     });
 
@@ -318,6 +338,8 @@ export const updateProject = async (req, res) => {
       priority,
       team_lead,
       isPublic,
+      treasurerName,
+      treasurerPhone,
       materialResources,
       humanResources,
       financialResources,
@@ -359,6 +381,44 @@ export const updateProject = async (req, res) => {
       }
     }
 
+    const normalizedTreasurerName =
+      typeof treasurerName === "string" ? treasurerName.trim() : undefined;
+    const normalizedTreasurerPhone =
+      typeof treasurerPhone === "string" ? treasurerPhone.trim() : undefined;
+
+    const currentProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { financialResources: true },
+    });
+
+    if (!currentProject) {
+      return res
+        .status(404)
+        .json({ message: "Tsy hita na Tsy misy io tetikasa io" });
+    }
+
+    const financialSource =
+      financialResources !== undefined
+        ? financialResources
+        : currentProject.financialResources;
+    const hasFinancialResource =
+      (financialSource?.[0]?.amount || 0) > 0 ||
+      (financialSource?.[0]?.owned || 0) > 0;
+    if (hasFinancialResource) {
+      if (!normalizedTreasurerName && !currentProject.treasurerName) {
+        return res.status(400).json({
+          message:
+            "Ampidiro ny anaran'ny mpitahiry vola raha misy vola ilaina.",
+        });
+      }
+      if (!normalizedTreasurerPhone && !currentProject.treasurerPhone) {
+        return res.status(400).json({
+          message:
+            "Ampidiro ny nomeraon-telefaona raha misy vola ilaina.",
+        });
+      }
+    }
+
     // proceed to update project
     const project = await prisma.project.update({
       where: { id: projectId },
@@ -371,6 +431,14 @@ export const updateProject = async (req, res) => {
         progress,
         priority,
         isPublic: typeof isPublic === "boolean" ? isPublic : undefined,
+        treasurerName:
+          normalizedTreasurerName !== undefined
+            ? normalizedTreasurerName || null
+            : undefined,
+        treasurerPhone:
+          normalizedTreasurerPhone !== undefined
+            ? normalizedTreasurerPhone || null
+            : undefined,
       },
     });
 

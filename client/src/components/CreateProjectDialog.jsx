@@ -28,6 +28,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     materialResources: [],
     humanResources: [],
     financialResources: { needed: 0, owned: 0 },
+    objectives: [],
+    treasurerName: "",
+    treasurerPhone: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,6 +40,17 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     try {
       if (!formData.team_lead) {
         return toast.error("Azafady, mifidiana mpitarika ny tetikasa.");
+      }
+      const hasFinancialResource =
+        (formData.financialResources?.needed || 0) > 0 ||
+        (formData.financialResources?.owned || 0) > 0;
+      if (hasFinancialResource) {
+        if (!formData.treasurerName?.trim()) {
+          return toast.error("Ampidiro ny anaran'ny mpitahiry vola.");
+        }
+        if (!formData.treasurerPhone?.trim()) {
+          return toast.error("Ampidiro ny nomeraon-telefaona.");
+        }
       }
       setIsSubmitting(true);
 
@@ -66,6 +80,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         materialResources: [],
         humanResources: [],
         financialResources: { needed: 0, owned: 0 },
+        objectives: [],
+        treasurerName: "",
+        treasurerPhone: "",
       });
 
       setIsDialogOpen(false);
@@ -370,7 +387,10 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 onClick={() =>
                   setFormData({
                     ...formData,
-                    humanResources: [...formData.humanResources, { name: "", needed: 1 }],
+                    humanResources: [
+                      ...formData.humanResources,
+                      { name: "", needed: 1 },
+                    ],
                   })
                 }
                 className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
@@ -469,6 +489,141 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <label className="block text-sm font-medium mb-2">
+              Mpitahiry vola
+            </label>
+            <p className="text-xs text-zinc-500 mb-2">
+              Azonao atao ny mameno azy any aoriana raha tsy misy vola ilaina.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Anarana
+                </label>
+                <input
+                  type="text"
+                  value={formData.treasurerName}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      treasurerName: e.target.value,
+                    })
+                  }
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Nomeraon-telefaona
+                </label>
+                <input
+                  type="tel"
+                  value={formData.treasurerPhone}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      treasurerPhone: e.target.value,
+                    })
+                  }
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Objectives */}
+          <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <label className="block text-sm font-medium">Tanjona</label>
+                <p className="text-xs text-zinc-500">
+                  Azonao atao ny mameno azy any aoriana.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    objectives: [
+                      ...formData.objectives,
+                      { name: "", description: "", result: "", risk: "" },
+                    ],
+                  })
+                }
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusIcon className="size-3" /> Hanampy
+              </button>
+            </div>
+            {formData.objectives.length === 0 && (
+              <p className="text-xs text-zinc-500">Tsy misy tanjona</p>
+            )}
+            {formData.objectives.map((obj, idx) => (
+              <div key={idx} className="space-y-2 mb-3">
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Anaran'ny tanjona"
+                    value={obj.name}
+                    onChange={(e) => {
+                      const updated = [...formData.objectives];
+                      updated[idx].name = e.target.value;
+                      setFormData({ ...formData, objectives: updated });
+                    }}
+                    className="flex-1 px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = formData.objectives.filter(
+                        (_, i) => i !== idx,
+                      );
+                      setFormData({ ...formData, objectives: updated });
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <TrashIcon className="size-4" />
+                  </button>
+                </div>
+                <textarea
+                  rows={2}
+                  placeholder="Fanazavana (tsy voatery)"
+                  value={obj.description}
+                  onChange={(e) => {
+                    const updated = [...formData.objectives];
+                    updated[idx].description = e.target.value;
+                    setFormData({ ...formData, objectives: updated });
+                  }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Vokatra andrasana (tsy voatery)"
+                  value={obj.result}
+                  onChange={(e) => {
+                    const updated = [...formData.objectives];
+                    updated[idx].result = e.target.value;
+                    setFormData({ ...formData, objectives: updated });
+                  }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Loza mety hitranga (tsy voatery)"
+                  value={obj.risk}
+                  onChange={(e) => {
+                    const updated = [...formData.objectives];
+                    updated[idx].risk = e.target.value;
+                    setFormData({ ...formData, objectives: updated });
+                  }}
+                  className="w-full px-2 py-1 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm"
+                />
+              </div>
+            ))}
           </div>
 
           {/*Public/Private Toggle*/}
