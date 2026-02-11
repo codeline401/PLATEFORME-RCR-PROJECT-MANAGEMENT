@@ -84,7 +84,7 @@ const ProjectTasks = ({ tasks }) => {
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {
-      toast.loading("Updating status...");
+      toast.loading("Eo ampanovana...");
       const token = await getToken();
 
       await api.put(
@@ -98,7 +98,7 @@ const ProjectTasks = ({ tasks }) => {
       dispatch(updateTask(updatedTask));
 
       toast.dismissAll();
-      toast.success("Task status updated successfully");
+      toast.success("Fahavitan'ny asa voaova soamantsara");
     } catch (error) {
       toast.dismissAll();
       toast.error(error?.response?.data?.message || error.message);
@@ -336,7 +336,7 @@ const ProjectTasks = ({ tasks }) => {
                       colSpan="7"
                       className="text-center text-zinc-500 dark:text-zinc-400 py-6"
                     >
-                      No tasks found for the selected filters.
+                      Tsy misy asa hita ny amin'ireo sivana ireo
                     </td>
                   </tr>
                 )}

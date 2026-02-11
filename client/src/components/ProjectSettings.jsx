@@ -8,6 +8,7 @@ import {
   CheckIcon,
   XIcon,
   ClockIcon,
+  BanknoteIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
@@ -36,6 +37,8 @@ export default function ProjectSettings({ project }) {
 
   // Vérifier si l'utilisateur actuel est le lead du projet
   const isProjectLead = project?.team_lead === currentUserId;
+  const isWorkspaceAdmin = currentMember?.role === "ADMIN";
+  const canManageContributions = isProjectLead || isWorkspaceAdmin;
 
   const [formData, setFormData] = useState({
     name: "New Website Launch",
@@ -58,13 +61,17 @@ export default function ProjectSettings({ project }) {
 
   // État pour les contributions en attente
   const [pendingContributions, setPendingContributions] = useState([]);
+  const [pendingFinancialContributions, setPendingFinancialContributions] =
+    useState([]);
   const [isLoadingContributions, setIsLoadingContributions] = useState(false);
   const [processingContributionId, setProcessingContributionId] =
     useState(null);
+  const [activeContributionTab, setActiveContributionTab] =
+    useState("material");
 
-  // Charger les contributions en attente
+  // Charger les contributions matérielles en attente
   const fetchPendingContributions = async () => {
-    if (!project?.id || !isProjectLead) return;
+    if (!project?.id || !canManageContributions) return;
 
     setIsLoadingContributions(true);
     try {
@@ -81,7 +88,25 @@ export default function ProjectSettings({ project }) {
     }
   };
 
-  // Approuver une contribution
+  // Charger les contributions financières en attente
+  const fetchPendingFinancialContributions = async () => {
+    if (!project?.id || !canManageContributions) return;
+
+    try {
+      const token = await getToken();
+      const { data } = await api.get(
+        `/api/contributions/financial/project/${project.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setPendingFinancialContributions(
+        (data || []).filter((c) => c.status === "PENDING"),
+      );
+    } catch (error) {
+      console.error("Erreur chargement contributions financières:", error);
+    }
+  };
+
+  // Approuver une contribution matérielle
   const handleApprove = async (contributionId) => {
     setProcessingContributionId(contributionId);
     try {
@@ -107,7 +132,7 @@ export default function ProjectSettings({ project }) {
     }
   };
 
-  // Rejeter une contribution
+  // Rejeter une contribution matérielle
   const handleReject = async (contributionId) => {
     setProcessingContributionId(contributionId);
     try {
@@ -128,17 +153,65 @@ export default function ProjectSettings({ project }) {
     }
   };
 
+  // Approuver une contribution financière
+  const handleApproveFinancial = async (contributionId) => {
+    setProcessingContributionId(contributionId);
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/contributions/financial/${contributionId}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success("Fanampiana ara-bola nekena !");
+      setPendingFinancialContributions((prev) =>
+        prev.filter((c) => c.id !== contributionId),
+      );
+      dispatch(fetchWorkspaces(token));
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Erreur lors de l'approbation",
+      );
+    } finally {
+      setProcessingContributionId(null);
+    }
+  };
+
+  // Rejeter une contribution financière
+  const handleRejectFinancial = async (contributionId) => {
+    setProcessingContributionId(contributionId);
+    try {
+      const token = await getToken();
+      await api.put(
+        `/api/contributions/financial/${contributionId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success("Fanampiana ara-bola nolavina");
+      setPendingFinancialContributions((prev) =>
+        prev.filter((c) => c.id !== contributionId),
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Erreur lors du rejet");
+    } finally {
+      setProcessingContributionId(null);
+    }
+  };
+
   // Charger les contributions au montage
   useEffect(() => {
     console.log("🔍 Debug ProjectSettings:", {
       projectTeamLead: project?.team_lead,
       currentUserId,
       isProjectLead,
+      isWorkspaceAdmin,
+      canManageContributions,
       userEmail: user?.primaryEmailAddress?.emailAddress,
     });
     fetchPendingContributions();
+    fetchPendingFinancialContributions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, isProjectLead, currentUserId]);
+  }, [project?.id, canManageContributions, currentUserId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -172,7 +245,7 @@ export default function ProjectSettings({ project }) {
 
       console.log("✅ Réponse serveur:", data);
       toast.dismiss();
-      toast.success(data.message || "Tetikasa voavao soa aman-tsara!");
+      toast.success(data.message || "Tetikasa voaova soa aman-tsara!");
       setIsDialogOpen(false);
 
       // FIX: Obtenir le token d'abord, puis l'envoyer à fetchWorkspaces
@@ -660,8 +733,8 @@ export default function ProjectSettings({ project }) {
           )}
         </div>
 
-        {/* Pending Contributions - Visible only for Lead */}
-        {isProjectLead && (
+        {/* Pending Contributions - Visible only for Lead or Admin */}
+        {canManageContributions && (
           <div className={cardClasses}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
@@ -675,25 +748,157 @@ export default function ProjectSettings({ project }) {
                   Mila fankatoavanao
                 </p>
               </div>
-              {pendingContributions.length > 0 && (
+              {pendingContributions.length +
+                pendingFinancialContributions.length >
+                0 && (
                 <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  {pendingContributions.length}
+                  {pendingContributions.length +
+                    pendingFinancialContributions.length}
                 </span>
               )}
+            </div>
+
+            {/* Tabs for Material / Financial */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setActiveContributionTab("material")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                  activeContributionTab === "material"
+                    ? "bg-blue-500 text-white"
+                    : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                }`}
+              >
+                <PackageIcon className="size-3.5" />
+                Fitaovana
+                {pendingContributions.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white">
+                    {pendingContributions.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveContributionTab("financial")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                  activeContributionTab === "financial"
+                    ? "bg-blue-500 text-white"
+                    : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                }`}
+              >
+                <BanknoteIcon className="size-3.5" />
+                Vola
+                {pendingFinancialContributions.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white">
+                    {pendingFinancialContributions.length}
+                  </span>
+                )}
+              </button>
             </div>
 
             {isLoadingContributions ? (
               <div className="flex items-center justify-center py-8">
                 <span className="size-6 border-2 border-zinc-300 dark:border-zinc-600 border-t-blue-500 rounded-full animate-spin"></span>
               </div>
-            ) : pendingContributions.length === 0 ? (
+            ) : activeContributionTab === "material" ? (
+              /* Material Contributions Tab */
+              pendingContributions.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                  <PackageIcon className="size-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">
+                    Tsy misy fanolorana fitaovana miandry
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {pendingContributions.map((contribution) => (
+                    <div
+                      key={contribution.id}
+                      className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50"
+                    >
+                      {/* Contributor Info */}
+                      <div className="flex items-center gap-3 mb-2">
+                        {contribution.contributor?.image ? (
+                          <img
+                            src={contribution.contributor.image}
+                            alt={contribution.contributor.name}
+                            className="size-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="size-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+                            {contribution.contributor?.name?.charAt(0) || "?"}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                            {contribution.contributor?.name || "Inconnu"}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {new Date(
+                              contribution.createdAt,
+                            ).toLocaleDateString("fr-FR", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Resource & Quantity */}
+                      <div className="flex items-center gap-2 mb-2 text-sm">
+                        <PackageIcon className="size-4 text-zinc-400" />
+                        <span className="text-zinc-700 dark:text-zinc-300">
+                          <strong>{contribution.quantity}x</strong>{" "}
+                          {contribution.resource?.name}
+                        </span>
+                      </div>
+
+                      {/* Message if any */}
+                      {contribution.message && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 italic mb-3 pl-6">
+                          "{contribution.message}"
+                        </p>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={() => handleApprove(contribution.id)}
+                          disabled={
+                            processingContributionId === contribution.id
+                          }
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                        >
+                          {processingContributionId === contribution.id ? (
+                            <span className="size-3 border border-white/30 border-t-white rounded-full animate-spin"></span>
+                          ) : (
+                            <CheckIcon className="size-3.5" />
+                          )}
+                          Ekena
+                        </button>
+                        <button
+                          onClick={() => handleReject(contribution.id)}
+                          disabled={
+                            processingContributionId === contribution.id
+                          }
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50"
+                        >
+                          <XIcon className="size-3.5" />
+                          Lavina
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : /* Financial Contributions Tab */
+            pendingFinancialContributions.length === 0 ? (
               <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
-                <PackageIcon className="size-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Tsy misy fanolorana miandry</p>
+                <BanknoteIcon className="size-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Tsy misy fanolorana ara-bola miandry</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {pendingContributions.map((contribution) => (
+                {pendingFinancialContributions.map((contribution) => (
                   <div
                     key={contribution.id}
                     className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50"
@@ -707,7 +912,7 @@ export default function ProjectSettings({ project }) {
                           className="size-8 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="size-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+                        <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-sm font-medium">
                           {contribution.contributor?.name?.charAt(0) || "?"}
                         </div>
                       )}
@@ -728,13 +933,19 @@ export default function ProjectSettings({ project }) {
                       </div>
                     </div>
 
-                    {/* Resource & Quantity */}
+                    {/* Amount & Reference */}
                     <div className="flex items-center gap-2 mb-2 text-sm">
-                      <PackageIcon className="size-4 text-zinc-400" />
+                      <BanknoteIcon className="size-4 text-emerald-500" />
                       <span className="text-zinc-700 dark:text-zinc-300">
-                        <strong>{contribution.quantity}x</strong>{" "}
-                        {contribution.resource?.name}
+                        <strong>
+                          {(contribution.amount || 0).toLocaleString()} Ar
+                        </strong>
                       </span>
+                      {contribution.reference && (
+                        <span className="text-zinc-400 text-xs">
+                          (Ref: {contribution.reference})
+                        </span>
+                      )}
                     </div>
 
                     {/* Message if any */}
@@ -747,7 +958,7 @@ export default function ProjectSettings({ project }) {
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 mt-3">
                       <button
-                        onClick={() => handleApprove(contribution.id)}
+                        onClick={() => handleApproveFinancial(contribution.id)}
                         disabled={processingContributionId === contribution.id}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
                       >
@@ -756,10 +967,10 @@ export default function ProjectSettings({ project }) {
                         ) : (
                           <CheckIcon className="size-3.5" />
                         )}
-                        Ekena
+                        Hamarina
                       </button>
                       <button
-                        onClick={() => handleReject(contribution.id)}
+                        onClick={() => handleRejectFinancial(contribution.id)}
                         disabled={processingContributionId === contribution.id}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50"
                       >

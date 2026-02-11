@@ -76,45 +76,8 @@ export const createMaterialContribution = async (req, res) => {
       });
     }
 
-    // Vérifier si le contributeur est le Lead du projet
-    const isLead = resource.project.owner.id === contributor.id;
-
-    if (isLead) {
-      // ========== CAS LEAD : Auto-approbation ==========
-      // Créer contribution approuvée puis mettre à jour la ressource (séquentiel pour éviter timeout transaction)
-      const contribution = await prisma.materialContribution.create({
-        data: {
-          quantity: numericQuantity,
-          message: message || null,
-          resourceId,
-          projectId,
-          contributorId: contributor.id,
-          status: "APPROVED", // Auto-approuvé
-        },
-        include: {
-          resource: true,
-          contributor: { select: { id: true, name: true, email: true } },
-          project: { select: { id: true, name: true } },
-        },
-      });
-
-      const updatedResource = await prisma.materialResource.update({
-        where: { id: resourceId },
-        data: {
-          owned: { increment: numericQuantity },
-        },
-      });
-
-      return res.status(201).json({
-        message: "Contribution enregistrée (auto-approuvée)",
-        contribution,
-        resource: updatedResource,
-        autoApproved: true,
-      });
-    }
-
-    // ========== CAS MEMBRE : Contribution en attente ==========
-    // Créer la contribution en PENDING
+    // ========== TOUTES LES CONTRIBUTIONS EN ATTENTE ==========
+    // Créer la contribution en PENDING (même pour le Lead)
     const contribution = await prisma.materialContribution.create({
       data: {
         quantity: numericQuantity,
@@ -166,7 +129,7 @@ export const createMaterialContribution = async (req, res) => {
     }
 
     res.status(201).json({
-      message: "Contribution créée avec succès",
+      message: "Contribution créée avec succès (miandry fankatoavana)",
       contribution,
     });
   } catch (error) {
@@ -416,6 +379,81 @@ export const approveFinancialContribution = async (req, res) => {
     console.error("Erreur approveFinancialContribution:", error);
     res.status(500).json({
       message: "Erreur lors de la validation de la contribution",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Rejeter une contribution financière (Lead ou Admin)
+ * PUT /api/contributions/financial/:id/reject
+ */
+export const rejectFinancialContribution = async (req, res) => {
+  try {
+    const clerkUserId = req.userId;
+    const { id } = req.params;
+
+    // Recherche utilisateur par id (Clerk ID) OU par clerkId
+    let currentUser = await prisma.user.findUnique({
+      where: { id: clerkUserId },
+      select: { id: true },
+    });
+    if (!currentUser) {
+      currentUser = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true },
+      });
+    }
+    if (!currentUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    const contribution = await prisma.financialContribution.findUnique({
+      where: { id },
+      include: {
+        project: {
+          include: {
+            workspace: { include: { members: true } },
+          },
+        },
+        contributor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!contribution) {
+      return res.status(404).json({ message: "Tsy hita io fanampiana io" });
+    }
+
+    const isLead = contribution.project.team_lead === currentUser.id;
+    const isAdmin = contribution.project.workspace.members.some(
+      (member) => member.userId === currentUser.id && member.role === "ADMIN",
+    );
+
+    if (!isLead && !isAdmin) {
+      return res.status(403).json({
+        message: "Tsy manana alalana ianao handà io fanampiana io",
+      });
+    }
+
+    if (contribution.status !== "PENDING") {
+      return res.status(400).json({
+        message: "Efa voamarina na nolavina io fanampiana io",
+      });
+    }
+
+    const updatedContribution = await prisma.financialContribution.update({
+      where: { id },
+      data: { status: "REJECTED" },
+    });
+
+    res.json({
+      message: "Fanampiana nolavina",
+      contribution: updatedContribution,
+    });
+  } catch (error) {
+    console.error("Erreur rejectFinancialContribution:", error);
+    res.status(500).json({
+      message: "Erreur lors du rejet de la contribution",
       error: error.message,
     });
   }

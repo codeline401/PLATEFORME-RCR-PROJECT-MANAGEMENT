@@ -144,7 +144,6 @@ export default function ProjectDetail() {
   );
   const isAdmin = isWorkspaceAdmin || isOrgAdmin;
   const canEditIndicator = isProjectLead || isAdmin;
-  const canApproveFinancial = isProjectLead || isAdmin;
 
   const totalFinancialNeeded = project?.financialResources?.reduce(
     (acc, r) => acc + (r.amount || 0),
@@ -538,129 +537,81 @@ export default function ProjectDetail() {
                   </span>
                 </div>
               )}
-              {/* Section Fanolorana Miandry - pour le lead/admin */}
-              {canApproveFinancial &&
-                financialContributions.filter((c) => c.status === "PENDING")
-                  .length > 0 && (
-                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
-                      Fanolorana miandry
-                    </p>
-                    <div className="space-y-2">
-                      {financialContributions
-                        .filter((c) => c.status === "PENDING")
-                        .map((donation, idx) => (
-                          <div
-                            key={donation.id || `pending-${idx}`}
-                            className="flex items-center justify-between text-xs bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-700"
-                          >
-                            <div>
-                              <span className="text-zinc-700 dark:text-zinc-300">
-                                {donation.contributor?.name || "Mpikambana"}
-                              </span>
-                              <span className="text-zinc-500 mx-1">|</span>
-                              <span className="font-medium text-zinc-900 dark:text-white">
-                                {donation.amount.toLocaleString()} Ar
-                              </span>
-                              {donation.reference && (
-                                <span className="text-zinc-400 ml-2 text-[10px]">
-                                  (Ref: {donation.reference})
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const token = await getToken();
-                                  await api.put(
-                                    `/api/contributions/financial/${donation.id}/approve`,
-                                    {},
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    },
-                                  );
-                                  const { data } = await api.get(
-                                    `/api/contributions/financial/project/${id}`,
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    },
-                                  );
-                                  setFinancialContributions(data || []);
-                                  dispatch(fetchWorkspaces(token));
-                                  toast.success("Fanampiana voamarina");
-                                } catch (error) {
-                                  toast.error(
-                                    error?.response?.data?.message ||
-                                      "Tsy nahomby",
-                                  );
-                                }
-                              }}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded font-medium"
-                            >
-                              Hamarina
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              {/* Section Voaray - contributions approuvées */}
+
+              {/* Liste des contributions financières approuvées */}
               {financialContributions.filter((c) => c.status === "APPROVED")
                 .length > 0 && (
-                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <div className="pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700">
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
-                    Voaray
+                    Voaray (
+                    {
+                      financialContributions.filter(
+                        (c) => c.status === "APPROVED",
+                      ).length
+                    }
+                    )
                   </p>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
                     {financialContributions
                       .filter((c) => c.status === "APPROVED")
-                      .map((donation, idx) => (
+                      .map((donation) => (
                         <div
-                          key={donation.id || `approved-${idx}`}
-                          className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400"
+                          key={donation.id}
+                          className="flex items-center justify-between text-xs bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded"
                         >
-                          <span>
-                            {donation.contributor?.name || "Mpikambana"} |{" "}
-                            {donation.amount.toLocaleString()} Ar
-                          </span>
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            ✓
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              ✓
+                            </span>
+                            <span className="text-zinc-700 dark:text-zinc-300">
+                              {donation.contributor?.name || "Mpikambana"}
+                            </span>
+                          </div>
+                          <span className="font-medium text-zinc-900 dark:text-white">
+                            {(donation.amount || 0).toLocaleString()} Ar
                           </span>
                         </div>
                       ))}
                   </div>
                 </div>
               )}
-              {/* Pour les membres non-lead: afficher leurs contributions en attente */}
-              {!canApproveFinancial &&
-                financialContributions.filter((c) => c.status === "PENDING")
-                  .length > 0 && (
-                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
-                      Eo am-pamarinana
-                    </p>
-                    <div className="space-y-1">
-                      {financialContributions
-                        .filter((c) => c.status === "PENDING")
-                        .map((donation, idx) => (
-                          <div
-                            key={donation.id || `pending-member-${idx}`}
-                            className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400"
-                          >
-                            <span>
-                              {donation.contributor?.name || "Mpikambana"} |{" "}
-                              {donation.amount.toLocaleString()} Ar
-                            </span>
+
+              {/* Liste des contributions financières en attente */}
+              {financialContributions.filter((c) => c.status === "PENDING")
+                .length > 0 && (
+                <div className="pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
+                    Miandry (
+                    {
+                      financialContributions.filter(
+                        (c) => c.status === "PENDING",
+                      ).length
+                    }
+                    )
+                  </p>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {financialContributions
+                      .filter((c) => c.status === "PENDING")
+                      .map((donation) => (
+                        <div
+                          key={donation.id}
+                          className="flex items-center justify-between text-xs bg-amber-50 dark:bg-amber-900/20 p-2 rounded"
+                        >
+                          <div className="flex items-center gap-2">
                             <span className="text-amber-500">⏳</span>
+                            <span className="text-zinc-700 dark:text-zinc-300">
+                              {donation.contributor?.name || "Mpikambana"}
+                            </span>
                           </div>
-                        ))}
-                    </div>
+                          <span className="font-medium text-zinc-900 dark:text-white">
+                            {(donation.amount || 0).toLocaleString()} Ar
+                          </span>
+                        </div>
+                      ))}
                   </div>
-                )}
+                </div>
+              )}
+
               <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
                 <div
                   className="bg-emerald-500 h-2 rounded-full"
