@@ -1,18 +1,27 @@
 import { Router } from "express";
+// Material Contributions
 import {
   createMaterialContribution,
   getProjectContributions,
   approveContribution,
   rejectContribution,
   getMyContributions,
+} from "../controllers/materialContributionController.js";
+
+// Financial Contributions
+import {
   createFinancialContribution,
   getProjectFinancialContributions,
   approveFinancialContribution,
   rejectFinancialContribution,
+} from "../controllers/financialContributionController.js";
+
+// Human Resource Contributions
+import {
   participateHumanResource,
   cancelHumanParticipation,
   getHumanResourceParticipants,
-} from "../controllers/contributionController.js";
+} from "../controllers/humanContributionController.js";
 
 const router = Router();
 

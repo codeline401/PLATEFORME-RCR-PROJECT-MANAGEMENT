@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth, useUser } from "@clerk/clerk-react";
-import toast from "react-hot-toast";
-import api from "../configs/api.js";
-import { fetchWorkspaces } from "../features/workspaceSlice.js";
 import {
   ArrowLeftIcon,
   PlusIcon,
@@ -13,58 +8,117 @@ import {
   CalendarIcon,
   FileStackIcon,
   ZapIcon,
-  XIcon,
-  PackageIcon,
-  CheckCircleIcon,
-  UsersIcon,
-  TargetIcon,
-  TrashIcon,
 } from "lucide-react";
+
+// Components
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
 import CreateTaskDialog from "../components/CreateTaskDialog";
 import ProjectCalendar from "../components/ProjectCalendar";
 import ProjectTasks from "../components/ProjectTasks";
+import ProjectObjectives from "../components/ProjectObjectives";
+import {
+  MaterialResourcesSection,
+  HumanResourcesSection,
+  FinancialResourcesSection,
+} from "../components/ProjectResources";
+import {
+  MaterialContributionModal,
+  FinancialContributionModal,
+  HumanParticipationModal,
+  ObjectiveModal,
+  IndicatorModal,
+  EditIndicatorModal,
+} from "../components/modals";
+
+// Hooks
+import {
+  useProjectDetails,
+  useObjectives,
+  useIndicators,
+  useContributions,
+} from "../hooks/useProjectDetails";
+
+// Status colors constant
+const statusColors = {
+  PLANNING: "bg-zinc-200 text-zinc-900 dark:bg-zinc-600 dark:text-zinc-200",
+  ACTIVE:
+    "bg-emerald-200 text-emerald-900 dark:bg-emerald-500 dark:text-emerald-900",
+  ON_HOLD: "bg-amber-200 text-amber-900 dark:bg-amber-500 dark:text-amber-900",
+  COMPLETED: "bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-blue-900",
+  CANCELLED: "bg-red-200 text-red-900 dark:bg-red-500 dark:text-red-900",
+};
 
 export default function ProjectDetail() {
-  const { getToken } = useAuth();
-  const { user } = useUser();
-  const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const tab = searchParams.get("tab");
   const id = searchParams.get("id");
 
-  const navigate = useNavigate();
-  const projects = useSelector(
-    (state) => state?.workspace?.currentWorkspace?.projects || [],
-  );
+  // Custom hooks for data and logic
+  const {
+    project,
+    tasks,
+    financialContributions,
+    setFinancialContributions,
+    currentUserId,
+    isProjectLead,
+    canEditIndicator,
+    totalFinancialNeeded,
+    totalFinancialOwned,
+    remainingFinancialNeeded,
+    getToken,
+    refreshData,
+  } = useProjectDetails(id);
 
-  const [project, setProject] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [showCreateTask, setShowCreateTask] = useState(false);
+  const {
+    createObjective,
+    toggleObjective,
+    deleteObjective,
+    isSubmitting: isSubmittingObjective,
+  } = useObjectives(getToken, refreshData);
+
+  const {
+    createIndicator,
+    updateIndicatorValue,
+    deleteIndicator,
+    isSubmitting: isSubmittingIndicator,
+  } = useIndicators(getToken, refreshData);
+
+  const {
+    submitMaterialContribution,
+    submitFinancialContribution,
+    submitHumanParticipation,
+    isSubmittingMaterial,
+    isSubmittingFinancial,
+    isSubmittingHuman,
+  } = useContributions(id, getToken, refreshData);
+
+  // Local UI state
   const [activeTab, setActiveTab] = useState(tab || "tasks");
+  const [showCreateTask, setShowCreateTask] = useState(false);
+
+  // Material contribution state
   const [selectedMaterialResource, setSelectedMaterialResource] =
     useState(null);
   const [materialContribution, setMaterialContribution] = useState({
     quantity: 1,
     message: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Financial contribution state
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [financialDonation, setFinancialDonation] = useState({
     amount: "",
     reference: "",
   });
-  const [financialContributions, setFinancialContributions] = useState([]);
-  const [isSubmittingFinancial, setIsSubmittingFinancial] = useState(false);
 
-  // Human resource participation state
+  // Human participation state
   const [selectedHumanResource, setSelectedHumanResource] = useState(null);
   const [humanParticipationMessage, setHumanParticipationMessage] =
     useState("");
-  const [isSubmittingHuman, setIsSubmittingHuman] = useState(false);
 
-  // Objective states
+  // Objective state
   const [showObjectiveModal, setShowObjectiveModal] = useState(false);
   const [newObjective, setNewObjective] = useState({
     name: "",
@@ -72,9 +126,8 @@ export default function ProjectDetail() {
     result: "",
     risk: "",
   });
-  const [isSubmittingObjective, setIsSubmittingObjective] = useState(false);
 
-  // Indicator states
+  // Indicator state
   const [showIndicatorModal, setShowIndicatorModal] = useState(false);
   const [selectedObjectiveForIndicator, setSelectedObjectiveForIndicator] =
     useState(null);
@@ -83,199 +136,75 @@ export default function ProjectDetail() {
     target: 0,
     unit: "",
   });
-  const [isSubmittingIndicator, setIsSubmittingIndicator] = useState(false);
   const [selectedIndicator, setSelectedIndicator] = useState(null);
   const [indicatorDraft, setIndicatorDraft] = useState(0);
-
-  // Get current workspace to find current user ID
-  const currentWorkspace = useSelector(
-    (state) => state.workspace?.currentWorkspace,
-  );
-  const currentMember = currentWorkspace?.members?.find(
-    (m) => m.user?.email === user?.primaryEmailAddress?.emailAddress,
-  );
-  const currentUserId = currentMember?.user?.id;
 
   useEffect(() => {
     if (tab) setActiveTab(tab);
   }, [tab]);
 
-  useEffect(() => {
-    if (projects && projects.length > 0) {
-      const proj = projects.find((p) => p.id === id);
-      setProject(proj);
-      setTasks(proj?.tasks || []);
-    }
-  }, [id, projects]);
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
-  useEffect(() => {
-    const loadFinancialContributions = async () => {
-      if (!id) return;
-      try {
-        const token = await getToken();
-        const { data } = await api.get(
-          `/api/contributions/financial/project/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        setFinancialContributions(data || []);
-      } catch (error) {
-        console.error("Erreur contributions financières:", error);
-      }
-    };
-
-    loadFinancialContributions();
-  }, [getToken, id]);
-
-  const statusColors = {
-    PLANNING: "bg-zinc-200 text-zinc-900 dark:bg-zinc-600 dark:text-zinc-200",
-    ACTIVE:
-      "bg-emerald-200 text-emerald-900 dark:bg-emerald-500 dark:text-emerald-900",
-    ON_HOLD:
-      "bg-amber-200 text-amber-900 dark:bg-amber-500 dark:text-amber-900",
-    COMPLETED: "bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-blue-900",
-    CANCELLED: "bg-red-200 text-red-900 dark:bg-red-500 dark:text-red-900",
-  };
-
-  // Check if current user is project lead
-  const isProjectLead = project?.team_lead === currentUserId;
-  const isWorkspaceAdmin = currentMember?.role === "ADMIN";
-  const isOrgAdmin = ["ADMIN", "org:admin"].includes(
-    currentMember?.user?.role || "",
-  );
-  const isAdmin = isWorkspaceAdmin || isOrgAdmin;
-  const canEditIndicator = isProjectLead || isAdmin;
-
-  const totalFinancialNeeded = project?.financialResources?.reduce(
-    (acc, r) => acc + (r.amount || 0),
-    0,
-  );
-  const totalFinancialOwned = project?.financialResources?.reduce(
-    (acc, r) => acc + (r.owned || 0),
-    0,
-  );
-  const totalFinancialPending = financialContributions
-    .filter((c) => c.status === "PENDING")
-    .reduce((acc, c) => acc + Number(c.amount || 0), 0);
-  const remainingFinancialNeeded = Math.max(
-    0,
-    (totalFinancialNeeded || 0) -
-      (totalFinancialOwned || 0) -
-      totalFinancialPending,
-  );
-
-  // Objective functions
   const handleCreateObjective = async () => {
-    if (!newObjective.name.trim()) return;
-
-    setIsSubmittingObjective(true);
-    try {
-      const token = await getToken();
-      const response = await api.post(
-        `/api/objectives/project/${project.id}`,
-        newObjective,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      if (response.data) {
-        toast.success("Tanjona voasoratra");
-        dispatch(fetchWorkspaces(token));
-        setShowObjectiveModal(false);
-        setNewObjective({ name: "", description: "", result: "", risk: "" });
-      }
-    } catch (error) {
-      console.error("Erreur:", error);
-      toast.error("Tsy nahomby");
-    } finally {
-      setIsSubmittingObjective(false);
+    const success = await createObjective(project.id, newObjective);
+    if (success) {
+      setShowObjectiveModal(false);
+      setNewObjective({ name: "", description: "", result: "", risk: "" });
     }
   };
 
-  const handleToggleObjective = async (objectiveId) => {
-    try {
-      const token = await getToken();
-      await api.put(
-        `/api/objectives/${objectiveId}/toggle`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      dispatch(fetchWorkspaces(token));
-    } catch (error) {
-      console.error("Erreur toggle:", error);
-      toast.error("Tsy nahomby");
-    }
-  };
-
-  const handleDeleteObjective = async (objectiveId) => {
-    if (!confirm("Hofafana ve ity tanjona ity?")) return;
-
-    try {
-      const token = await getToken();
-      await api.delete(`/api/objectives/${objectiveId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("Tanjona voafafa");
-      dispatch(fetchWorkspaces(token));
-    } catch (error) {
-      console.error("Erreur delete:", error);
-      toast.error("Tsy nahomby");
-    }
-  };
-
-  // Indicator functions
   const handleCreateIndicator = async () => {
-    if (!newIndicator.name.trim() || !selectedObjectiveForIndicator) return;
-
-    setIsSubmittingIndicator(true);
-    try {
-      const token = await getToken();
-      await api.post(
-        `/api/objectives/${selectedObjectiveForIndicator}/indicators`,
-        newIndicator,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      toast.success("Mari-pandrefesana voasoratra");
-      dispatch(fetchWorkspaces(token));
+    const success = await createIndicator(
+      selectedObjectiveForIndicator,
+      newIndicator,
+    );
+    if (success) {
       setShowIndicatorModal(false);
       setNewIndicator({ name: "", target: 0, unit: "" });
       setSelectedObjectiveForIndicator(null);
-    } catch (error) {
-      console.error("Erreur:", error);
-      toast.error("Tsy nahomby");
-    } finally {
-      setIsSubmittingIndicator(false);
     }
   };
 
-  const handleUpdateIndicatorValue = async (indicatorId, newValue) => {
-    try {
-      const token = await getToken();
-      await api.put(
-        `/api/objectives/indicators/${indicatorId}`,
-        { current: newValue },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      dispatch(fetchWorkspaces(token));
-    } catch (error) {
-      console.error("Erreur update:", error);
-      toast.error("Tsy nahomby");
+  const handleMaterialSubmit = async () => {
+    const success = await submitMaterialContribution(
+      selectedMaterialResource.id,
+      materialContribution.quantity,
+      materialContribution.message,
+    );
+    if (success) {
+      setSelectedMaterialResource(null);
+      setMaterialContribution({ quantity: 1, message: "" });
     }
   };
 
-  const handleDeleteIndicator = async (indicatorId) => {
-    if (!confirm("Hofafana ve ity mari-pandrefesana ity?")) return;
-
-    try {
-      const token = await getToken();
-      await api.delete(`/api/objectives/indicators/${indicatorId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("Mari-pandrefesana voafafa");
-      dispatch(fetchWorkspaces(token));
-    } catch (error) {
-      console.error("Erreur delete:", error);
-      toast.error("Tsy nahomby");
+  const handleFinancialSubmit = async () => {
+    const success = await submitFinancialContribution(
+      parseFloat(financialDonation.amount),
+      financialDonation.reference,
+      setFinancialContributions,
+    );
+    if (success) {
+      setFinancialDonation({ amount: "", reference: "" });
+      setShowFinancialModal(false);
     }
   };
+
+  const handleHumanSubmit = async () => {
+    const success = await submitHumanParticipation(
+      selectedHumanResource.id,
+      humanParticipationMessage,
+    );
+    if (success) {
+      setSelectedHumanResource(null);
+      setHumanParticipationMessage("");
+    }
+  };
+
+  // ============================================================
+  // LOADING STATE
+  // ============================================================
 
   if (!project) {
     return (
@@ -293,6 +222,10 @@ export default function ProjectDetail() {
     );
   }
 
+  // ============================================================
+  // MAIN RENDER
+  // ============================================================
+
   return (
     <div className="space-y-5 max-w-6xl mx-auto text-zinc-900 dark:text-white">
       {/* Header */}
@@ -307,9 +240,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-medium">{project.name}</h1>
             <span
-              className={`px-2 py-1 rounded text-xs capitalize ${
-                statusColors[project.status]
-              }`}
+              className={`px-2 py-1 rounded text-xs capitalize ${statusColors[project.status]}`}
             >
               {project.status.replace("_", " ")}
             </span>
@@ -336,549 +267,69 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-2 sm:flex flex-wrap gap-6">
-        {[
-          {
-            label: "Totalin'ny Asa",
-            value: tasks.length,
-            color: "text-zinc-900 dark:text-white",
-          },
-          {
-            label: "Vita",
-            value: tasks.filter((t) => t.status === "DONE").length,
-            color: "text-emerald-700 dark:text-emerald-400",
-          },
-          {
-            label: "Efa Mandeha",
-            value: tasks.filter(
-              (t) => t.status === "IN_PROGRESS" || t.status === "TODO",
-            ).length,
-            color: "text-amber-700 dark:text-amber-400",
-          },
-          {
-            label: "Mpikambana ao amin'ny Ekipa",
-            value: project.members?.length || 0,
-            color: "text-blue-700 dark:text-blue-400",
-          },
-        ].map((card, idx) => (
-          <div
-            key={idx}
-            className=" dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 flex justify-between sm:min-w-60 p-4 py-2.5 rounded"
-          >
-            <div>
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                {card.label}
-              </div>
-              <div className={`text-2xl font-bold ${card.color}`}>
-                {card.value}
-              </div>
-            </div>
-            <ZapIcon className={`size-4 ${card.color}`} />
-          </div>
-        ))}
-      </div>
+      {/* Stats Cards */}
+      <StatsCards tasks={tasks} members={project.members} />
 
-      {/* Resources Section */}
+      {/* Resources Grid */}
       <div className="grid md:grid-cols-3 gap-4">
-        {/* Ressources Matérielles */}
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
-          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
-            Fitaovana Ilaina
-          </h3>
-          {project.materialResources?.length > 0 ? (
-            <ul className="space-y-2">
-              {project.materialResources.map((res) => {
-                const isComplete = res.owned >= res.needed;
-                return (
-                  <li
-                    key={res.id}
-                    className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2 gap-2"
-                  >
-                    <span className="flex-1">{res.name}</span>
-                    <span
-                      className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}
-                    >
-                      {res.owned}/{res.needed}
-                    </span>
-                    {isComplete ? (
-                      <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                        ✓ Feno
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedMaterialResource(res);
-                          setMaterialContribution({ quantity: 1, message: "" });
-                        }}
-                        className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white"
-                      >
-                        Hanolotra
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-xs text-zinc-500">Tsy misy fitaovana ilaina</p>
-          )}
-        </div>
-
-        {/* Ressources Humaines */}
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
-          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
-            Olona Ilaina
-          </h3>
-          {project.humanResources?.length > 0 ? (
-            <ul className="space-y-2">
-              {project.humanResources.map((res) => {
-                const hasParticipated = res.participants?.some(
-                  (p) => p.participant?.id === currentUserId,
-                );
-                const participantCount = res.participants?.length || 0;
-                const neededCount = res.needed || 1;
-                const isComplete = participantCount >= neededCount;
-
-                return (
-                  <li
-                    key={res.id}
-                    className="flex flex-col gap-2 text-sm border-b border-zinc-100 dark:border-zinc-800 pb-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex-1">{res.name}</span>
-                      <span
-                        className={`${isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}`}
-                      >
-                        {participantCount}/{neededCount}
-                      </span>
-                      {isComplete ? (
-                        <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                          ✓ Ampy
-                        </span>
-                      ) : hasParticipated ? (
-                        <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                          ✓ Nirotsaka
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setSelectedHumanResource(res);
-                            setHumanParticipationMessage("");
-                          }}
-                          className="text-xs px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white"
-                        >
-                          Handray anjara
-                        </button>
-                      )}
-                    </div>
-                    {participantCount > 0 && (
-                      <div className="flex flex-wrap items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        <span className="text-zinc-400">→</span>
-                        {res.participants?.map((p, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1"
-                          >
-                            {p.participant?.image ? (
-                              <img
-                                src={p.participant.image}
-                                alt={p.participant.name}
-                                className="size-4 rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="size-4 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] text-emerald-600 dark:text-emerald-400">
-                                {p.participant?.name?.charAt(0) || "?"}
-                              </span>
-                            )}
-                            <span className="text-zinc-700 dark:text-zinc-300">
-                              {p.participant?.name?.split(" ")[0]}
-                            </span>
-                            {idx < res.participants.length - 1 && (
-                              <span className="text-zinc-300 dark:text-zinc-600">
-                                ,
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-xs text-zinc-500">Tsy misy olona ilaina</p>
-          )}
-        </div>
-
-        {/* Ressources Financières */}
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
-          <h3 className="text-sm font-medium mb-3 text-zinc-700 dark:text-zinc-300">
-            Vola Ilaina
-          </h3>
-          {project.financialResources?.length > 0 ? (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Ilaina :</span>
-                <span>{(totalFinancialNeeded || 0).toLocaleString()} Ar</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Efa Hanana:</span>
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {(totalFinancialOwned || 0).toLocaleString()} Ar
-                </span>
-              </div>
-              {remainingFinancialNeeded > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Mbola ilaina:</span>
-                  <span className="text-amber-600 dark:text-amber-400">
-                    {remainingFinancialNeeded.toLocaleString()} Ar
-                  </span>
-                </div>
-              )}
-
-              {/* Liste des contributions financières approuvées */}
-              {financialContributions.filter((c) => c.status === "APPROVED")
-                .length > 0 && (
-                <div className="pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700">
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
-                    Voaray (
-                    {
-                      financialContributions.filter(
-                        (c) => c.status === "APPROVED",
-                      ).length
-                    }
-                    )
-                  </p>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {financialContributions
-                      .filter((c) => c.status === "APPROVED")
-                      .map((donation) => (
-                        <div
-                          key={donation.id}
-                          className="flex items-center justify-between text-xs bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-emerald-600 dark:text-emerald-400">
-                              ✓
-                            </span>
-                            <span className="text-zinc-700 dark:text-zinc-300">
-                              {donation.contributor?.name || "Mpikambana"}
-                            </span>
-                          </div>
-                          <span className="font-medium text-zinc-900 dark:text-white">
-                            {(donation.amount || 0).toLocaleString()} Ar
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Liste des contributions financières en attente */}
-              {financialContributions.filter((c) => c.status === "PENDING")
-                .length > 0 && (
-                <div className="pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700">
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
-                    Miandry (
-                    {
-                      financialContributions.filter(
-                        (c) => c.status === "PENDING",
-                      ).length
-                    }
-                    )
-                  </p>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {financialContributions
-                      .filter((c) => c.status === "PENDING")
-                      .map((donation) => (
-                        <div
-                          key={donation.id}
-                          className="flex items-center justify-between text-xs bg-amber-50 dark:bg-amber-900/20 p-2 rounded"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-amber-500">⏳</span>
-                            <span className="text-zinc-700 dark:text-zinc-300">
-                              {donation.contributor?.name || "Mpikambana"}
-                            </span>
-                          </div>
-                          <span className="font-medium text-zinc-900 dark:text-white">
-                            {(donation.amount || 0).toLocaleString()} Ar
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
-                <div
-                  className="bg-emerald-500 h-2 rounded-full"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      ((totalFinancialOwned || 0) /
-                        (totalFinancialNeeded || 1)) *
-                        100,
-                    )}%`,
-                  }}
-                ></div>
-              </div>
-              <button
-                onClick={() => setShowFinancialModal(true)}
-                className="w-full mt-3 text-xs px-3 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-medium"
-              >
-                Hanohana ara-bola
-              </button>
-            </div>
-          ) : (
-            <p className="text-xs text-zinc-500">Tsy misy vola ilaina</p>
-          )}
-        </div>
+        <MaterialResourcesSection
+          resources={project.materialResources}
+          onContribute={(res) => {
+            setSelectedMaterialResource(res);
+            setMaterialContribution({ quantity: 1, message: "" });
+          }}
+        />
+        <HumanResourcesSection
+          resources={project.humanResources}
+          currentUserId={currentUserId}
+          onParticipate={(res) => {
+            setSelectedHumanResource(res);
+            setHumanParticipationMessage("");
+          }}
+        />
+        <FinancialResourcesSection
+          resources={project.financialResources}
+          contributions={financialContributions}
+          totalNeeded={totalFinancialNeeded}
+          totalOwned={totalFinancialOwned}
+          remainingNeeded={remainingFinancialNeeded}
+          onDonate={() => setShowFinancialModal(true)}
+        />
       </div>
 
-      {/* Objectives Section */}
-      <div className="border border-zinc-200 dark:border-zinc-800 rounded p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-            <TargetIcon className="size-4" />
-            Tanjona (Objectifs)
-          </h3>
-          {isProjectLead && (
-            <button
-              onClick={() => setShowObjectiveModal(true)}
-              className="text-xs px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
-            >
-              <PlusIcon className="size-3" /> Hanampy
-            </button>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        {project.objectives?.length > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-zinc-500 mb-1">
-              <span>Fandrosoana</span>
-              <span>
-                {project.objectives.filter((o) => o.isCompleted).length}/
-                {project.objectives.length} vita
-              </span>
-            </div>
-            <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
-              <div
-                className="bg-emerald-500 h-2 rounded-full transition-all"
-                style={{
-                  width: `${
-                    (project.objectives.filter((o) => o.isCompleted).length /
-                      project.objectives.length) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Objectives list */}
-        <div className="space-y-3">
-          {project.objectives?.map((obj) => (
-            <div
-              key={obj.id}
-              className={`p-3 rounded border ${
-                obj.isCompleted
-                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
-                  : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={obj.isCompleted}
-                  onChange={() => handleToggleObjective(obj.id)}
-                  className="mt-1 size-4 rounded accent-emerald-500"
-                />
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`font-medium text-sm ${
-                      obj.isCompleted
-                        ? "line-through text-zinc-500"
-                        : "text-zinc-900 dark:text-white"
-                    }`}
-                  >
-                    {obj.name}
-                  </p>
-                  {obj.description && (
-                    <p className="text-xs text-zinc-500 mt-1">
-                      {obj.description}
-                    </p>
-                  )}
-                  {obj.result && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                      <span className="font-medium">Vokatra:</span> {obj.result}
-                    </p>
-                  )}
-                  {obj.risk && (
-                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                      <span className="font-medium">Loza:</span> {obj.risk}
-                    </p>
-                  )}
-
-                  {/* Indicators Section */}
-                  {obj.indicators && obj.indicators.length > 0 && (
-                    <div className="mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                        Mari-pandrefesana:
-                      </p>
-                      <div className="space-y-2">
-                        {obj.indicators.map((ind) => {
-                          const progress =
-                            ind.target > 0
-                              ? Math.min(100, (ind.current / ind.target) * 100)
-                              : 0;
-                          const isComplete = ind.current >= ind.target;
-
-                          return (
-                            <div key={ind.id} className="text-xs">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-zinc-700 dark:text-zinc-300">
-                                  {ind.name}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={
-                                      isComplete
-                                        ? "text-emerald-600"
-                                        : "text-zinc-500"
-                                    }
-                                  >
-                                    {ind.current}/{ind.target} {ind.unit}
-                                  </span>
-                                  {canEditIndicator && (
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => {
-                                          setSelectedIndicator(ind);
-                                          setIndicatorDraft(ind.current);
-                                        }}
-                                        className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
-                                      >
-                                        Ovaina
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteIndicator(ind.id)
-                                        }
-                                        className="text-red-500 hover:text-red-700 p-0.5"
-                                      >
-                                        <TrashIcon className="size-3" />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5">
-                                <div
-                                  className={`h-1.5 rounded-full transition-all ${
-                                    isComplete
-                                      ? "bg-emerald-500"
-                                      : "bg-blue-500"
-                                  }`}
-                                  style={{ width: `${progress}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add Indicator Button */}
-                  {canEditIndicator && (
-                    <button
-                      onClick={() => {
-                        setSelectedObjectiveForIndicator(obj.id);
-                        setShowIndicatorModal(true);
-                      }}
-                      className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                    >
-                      <PlusIcon className="size-3" /> Hanampy mari-pandrefesana
-                    </button>
-                  )}
-                </div>
-                {canEditIndicator && (
-                  <button
-                    onClick={() => handleDeleteObjective(obj.id)}
-                    className="text-red-500 hover:text-red-700 p-1"
-                  >
-                    <TrashIcon className="size-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {(!project.objectives || project.objectives.length === 0) && (
-            <p className="text-xs text-zinc-500 text-center py-4">
-              Tsy misy tanjona
-            </p>
-          )}
-        </div>
-      </div>
+      {/* Objectives */}
+      <ProjectObjectives
+        objectives={project.objectives || []}
+        isProjectLead={isProjectLead}
+        canEditIndicator={canEditIndicator}
+        onAddObjective={() => setShowObjectiveModal(true)}
+        onToggleObjective={toggleObjective}
+        onDeleteObjective={deleteObjective}
+        onAddIndicator={(objId) => {
+          setSelectedObjectiveForIndicator(objId);
+          setShowIndicatorModal(true);
+        }}
+        onEditIndicator={(ind) => {
+          setSelectedIndicator(ind);
+          setIndicatorDraft(ind.current);
+        }}
+        onDeleteIndicator={deleteIndicator}
+      />
 
       {/* Tabs */}
-      <div>
-        <div className="inline-flex flex-wrap max-sm:grid grid-cols-3 gap-2 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
-          {[
-            { key: "tasks", label: "Asa", icon: FileStackIcon },
-            { key: "calendar", label: "Tetiandro", icon: CalendarIcon },
-            { key: "analytics", label: "Analytics", icon: BarChart3Icon },
-            { key: "settings", label: "Hikirakira", icon: SettingsIcon },
-          ].map((tabItem) => (
-            <button
-              key={tabItem.key}
-              onClick={() => {
-                setActiveTab(tabItem.key);
-                setSearchParams({ id: id, tab: tabItem.key });
-              }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm transition-all ${
-                activeTab === tabItem.key
-                  ? "bg-zinc-100 dark:bg-zinc-800/80"
-                  : "hover:bg-zinc-50 dark:hover:bg-zinc-700"
-              }`}
-            >
-              <tabItem.icon className="size-3.5" />
-              {tabItem.label}
-            </button>
-          ))}
-        </div>
+      <TabsSection
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        setSearchParams={setSearchParams}
+        id={id}
+        tasks={tasks}
+        project={project}
+      />
 
-        <div className="mt-6">
-          {activeTab === "tasks" && (
-            <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-              <ProjectTasks tasks={tasks} />
-            </div>
-          )}
-          {activeTab === "analytics" && (
-            <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-              <ProjectAnalytics tasks={tasks} project={project} />
-            </div>
-          )}
-          {activeTab === "calendar" && (
-            <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-              <ProjectCalendar tasks={tasks} />
-            </div>
-          )}
-          {activeTab === "settings" && (
-            <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-              <ProjectSettings project={project} />
-            </div>
-          )}
-        </div>
-      </div>
+      {/* ============================================================ */}
+      {/* MODALS */}
+      {/* ============================================================ */}
 
-      {/* Create Task Modal */}
       {showCreateTask && (
         <CreateTaskDialog
           showCreateTask={showCreateTask}
@@ -887,727 +338,194 @@ export default function ProjectDetail() {
         />
       )}
 
+      <MaterialContributionModal
+        resource={selectedMaterialResource}
+        contribution={materialContribution}
+        setContribution={setMaterialContribution}
+        onClose={() => setSelectedMaterialResource(null)}
+        onSubmit={handleMaterialSubmit}
+        isSubmitting={isSubmittingMaterial}
+      />
+
       {showFinancialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <div>
-                <h3 className="font-medium text-zinc-900 dark:text-white text-sm">
-                  Fanohanana ara-bola
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Azafady alefaso amin'ny nomeraon'ny mpitahiry vola.
-                </p>
-                <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1">
-                  {project?.treasurerName || "Tsy misy anarana"} •{" "}
-                  {project?.treasurerPhone || "Tsy misy nomerao"}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowFinancialModal(false)}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <XIcon className="size-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                  Montant nalefa (Ar) *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={financialDonation.amount}
-                  onChange={(e) =>
-                    setFinancialDonation({
-                      ...financialDonation,
-                      amount: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                  Reference transfert *
-                </label>
-                <input
-                  type="text"
-                  value={financialDonation.reference}
-                  onChange={(e) =>
-                    setFinancialDonation({
-                      ...financialDonation,
-                      reference: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => setShowFinancialModal(false)}
-                className="px-3 py-1.5 text-xs rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-              >
-                Hiverina
-              </button>
-              <button
-                disabled={isSubmittingFinancial}
-                onClick={async () => {
-                  const amountValue = parseFloat(financialDonation.amount);
-                  if (!amountValue || amountValue <= 0) {
-                    toast.error("Ampidiro ny montant nalefa.");
-                    return;
-                  }
-                  if (!financialDonation.reference.trim()) {
-                    toast.error("Ampidiro ny reference transfert.");
-                    return;
-                  }
-                  setIsSubmittingFinancial(true);
-                  try {
-                    const token = await getToken();
-                    await api.post(
-                      "/api/contributions/financial",
-                      {
-                        projectId: id,
-                        amount: amountValue,
-                        reference: financialDonation.reference.trim(),
-                      },
-                      { headers: { Authorization: `Bearer ${token}` } },
-                    );
-                    const { data } = await api.get(
-                      `/api/contributions/financial/project/${id}`,
-                      { headers: { Authorization: `Bearer ${token}` } },
-                    );
-                    setFinancialContributions(data || []);
-                    setFinancialDonation({ amount: "", reference: "" });
-                    setShowFinancialModal(false);
-                    // Rafraîchir les données du projet
-                    dispatch(fetchWorkspaces(token));
-                    toast.success(
-                      "Fanampiana nalefa - miandry fanamarinana avy amin'ny lead",
-                    );
-                  } catch (error) {
-                    toast.error(
-                      error?.response?.data?.message || "Nisy olana nitranga",
-                    );
-                  } finally {
-                    setIsSubmittingFinancial(false);
-                  }
-                }}
-                className="px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
-              >
-                {isSubmittingFinancial ? "Eo am-pandefasana..." : "Hamarina"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <FinancialContributionModal
+          project={project}
+          donation={financialDonation}
+          setDonation={setFinancialDonation}
+          onClose={() => setShowFinancialModal(false)}
+          onSubmit={handleFinancialSubmit}
+          isSubmitting={isSubmittingFinancial}
+        />
+      )}
+
+      <HumanParticipationModal
+        resource={selectedHumanResource}
+        message={humanParticipationMessage}
+        setMessage={setHumanParticipationMessage}
+        onClose={() => setSelectedHumanResource(null)}
+        onSubmit={handleHumanSubmit}
+        isSubmitting={isSubmittingHuman}
+      />
+
+      {showObjectiveModal && (
+        <ObjectiveModal
+          objective={newObjective}
+          setObjective={setNewObjective}
+          onClose={() => {
+            setShowObjectiveModal(false);
+            setNewObjective({
+              name: "",
+              description: "",
+              result: "",
+              risk: "",
+            });
+          }}
+          onSubmit={handleCreateObjective}
+          isSubmitting={isSubmittingObjective}
+        />
+      )}
+
+      {showIndicatorModal && (
+        <IndicatorModal
+          indicator={newIndicator}
+          setIndicator={setNewIndicator}
+          onClose={() => {
+            setShowIndicatorModal(false);
+            setNewIndicator({ name: "", target: 0, unit: "" });
+            setSelectedObjectiveForIndicator(null);
+          }}
+          onSubmit={handleCreateIndicator}
+          isSubmitting={isSubmittingIndicator}
+        />
       )}
 
       {selectedIndicator && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-sm mx-4 border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <h3 className="font-medium text-zinc-900 dark:text-white text-sm">
-                Ovaina mari-pandrefesana
-              </h3>
-              <button
-                onClick={() => setSelectedIndicator(null)}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <XIcon className="size-4" />
-              </button>
-            </div>
-            <div className="p-4">
-              <label className="block text-xs font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                {selectedIndicator.name}
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={selectedIndicator.target}
-                value={indicatorDraft}
-                onChange={(e) =>
-                  setIndicatorDraft(parseInt(e.target.value) || 0)
-                }
-                className="w-full px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => setSelectedIndicator(null)}
-                className="px-3 py-1.5 text-xs rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-              >
-                Hiverina
-              </button>
-              <button
-                onClick={() => {
-                  handleUpdateIndicatorValue(
-                    selectedIndicator.id,
-                    indicatorDraft,
-                  );
-                  setSelectedIndicator(null);
-                }}
-                className="px-3 py-1.5 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Ovaina
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Material Resource Contribution Dialog */}
-      {selectedMaterialResource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <PackageIcon className="size-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-zinc-900 dark:text-white">
-                    Fanolorana Fitaovana
-                  </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Handray anjara amin'ity tetikasa ity
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedMaterialResource(null)}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
-              >
-                <XIcon className="size-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Resource Info */}
-              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-zinc-900 dark:text-white">
-                    {selectedMaterialResource.name}
-                  </span>
-                  <span
-                    className={`text-sm px-2 py-0.5 rounded ${
-                      selectedMaterialResource.owned >=
-                      selectedMaterialResource.needed
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    }`}
-                  >
-                    {selectedMaterialResource.owned >=
-                    selectedMaterialResource.needed
-                      ? "Ampy"
-                      : "Tsy Ampy"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-400">
-                  <span>
-                    Efa misy: <strong>{selectedMaterialResource.owned}</strong>
-                  </span>
-                  <span>
-                    Ilaina: <strong>{selectedMaterialResource.needed}</strong>
-                  </span>
-                </div>
-                <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(100, (selectedMaterialResource.owned / selectedMaterialResource.needed) * 100)}%`,
-                    }}
-                  ></div>
-                </div>
-                <p className="text-xs text-zinc-500 mt-2">
-                  Mbola ilaina:{" "}
-                  <strong>
-                    {Math.max(
-                      0,
-                      selectedMaterialResource.needed -
-                        selectedMaterialResource.owned,
-                    )}
-                  </strong>
-                </p>
-              </div>
-
-              {/* Contribution Form */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Isa holotra
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={Math.max(
-                      1,
-                      selectedMaterialResource.needed -
-                        selectedMaterialResource.owned,
-                    )}
-                    value={materialContribution.quantity}
-                    onChange={(e) =>
-                      setMaterialContribution({
-                        ...materialContribution,
-                        quantity: Math.max(1, parseInt(e.target.value) || 1),
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Hafatra (tsy voatery)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={materialContribution.message}
-                    onChange={(e) =>
-                      setMaterialContribution({
-                        ...materialContribution,
-                        message: e.target.value,
-                      })
-                    }
-                    placeholder="Anontanio na lazao ny fomba hanateranao azy..."
-                    className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => setSelectedMaterialResource(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-              >
-                Hiverina
-              </button>
-              <button
-                disabled={isSubmitting}
-                onClick={async () => {
-                  setIsSubmitting(true);
-                  try {
-                    const token = await getToken();
-                    const { data } = await api.post(
-                      "/api/contributions/material",
-                      {
-                        resourceId: selectedMaterialResource.id,
-                        projectId: id,
-                        quantity: materialContribution.quantity,
-                        message: materialContribution.message || null,
-                      },
-                      { headers: { Authorization: `Bearer ${token}` } },
-                    );
-                    // Message différent selon si auto-approuvé ou en attente
-                    if (data.autoApproved) {
-                      toast.success("Voatahiry ny fanampiana natolotrao!");
-                      // Rafraîchir les données car auto-approuvé
-                      dispatch(fetchWorkspaces(token));
-                    } else {
-                      toast.success(
-                        "Lasa ilay fangatahana hanampy. Miandry ny fankatoavan'ny mpandrindra ny tetikasa.",
-                      );
-                    }
-                    setSelectedMaterialResource(null);
-                    setMaterialContribution({ quantity: 1, message: "" });
-                  } catch (error) {
-                    toast.error(
-                      error?.response?.data?.message || "Nisy olana nitranga",
-                    );
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                ) : (
-                  <CheckCircleIcon className="size-4" />
-                )}
-                Hanolotra
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Human Resource Participation Dialog */}
-      {selectedHumanResource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                  <UsersIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-zinc-900 dark:text-white">
-                    Firotsahana
-                  </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Handray anjara amin'ity tetikasa ity
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedHumanResource(null)}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
-              >
-                <XIcon className="size-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Role Info */}
-              <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700">
-                <div className="flex items-center gap-2 mb-2">
-                  <UsersIcon className="size-4 text-zinc-400" />
-                  <span className="font-medium text-zinc-900 dark:text-white">
-                    {selectedHumanResource.name}
-                  </span>
-                </div>
-                {selectedHumanResource.participants?.length > 0 && (
-                  <p className="text-xs text-zinc-500">
-                    {selectedHumanResource.participants.length} efa nandray ny
-                    andraikitra
-                  </p>
-                )}
-              </div>
-
-              {/* Confirmation text */}
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                <p>
-                  Raha manaiky ianao, dia hanjary mpikambana amin'ity tetikasa
-                  ity ary hahazo email fanamarinana.
-                </p>
-              </div>
-
-              {/* Optional Message */}
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Hafatra (tsy voatery)
-                </label>
-                <textarea
-                  rows={3}
-                  value={humanParticipationMessage}
-                  onChange={(e) => setHumanParticipationMessage(e.target.value)}
-                  placeholder="Lazao ny traikefanao na ny antony hirotsahanao..."
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => setSelectedHumanResource(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-              >
-                Hiverina
-              </button>
-              <button
-                disabled={isSubmittingHuman}
-                onClick={async () => {
-                  setIsSubmittingHuman(true);
-                  try {
-                    const token = await getToken();
-                    await api.post(
-                      "/api/contributions/human",
-                      {
-                        resourceId: selectedHumanResource.id,
-                        projectId: id,
-                        message: humanParticipationMessage || null,
-                      },
-                      { headers: { Authorization: `Bearer ${token}` } },
-                    );
-                    toast.success(
-                      "Voatahiry ny firotsahanao! Hahazo email fanamarinana ianao.",
-                    );
-                    setSelectedHumanResource(null);
-                    setHumanParticipationMessage("");
-                    // Refresh workspace data
-                    dispatch(fetchWorkspaces(token));
-                  } catch (error) {
-                    toast.error(
-                      error?.response?.data?.message || "Nisy olana nitranga",
-                    );
-                  } finally {
-                    setIsSubmittingHuman(false);
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmittingHuman ? (
-                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                ) : (
-                  <CheckCircleIcon className="size-4" />
-                )}
-                Manaiky
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Objective Creation Modal */}
-      {showObjectiveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <TargetIcon className="size-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="font-medium text-zinc-900 dark:text-white">
-                  Hanampy Tanjona
-                </h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowObjectiveModal(false);
-                  setNewObjective({
-                    name: "",
-                    description: "",
-                    result: "",
-                    risk: "",
-                  });
-                }}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <XIcon className="size-4" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                  Anarana *
-                </label>
-                <input
-                  type="text"
-                  value={newObjective.name}
-                  onChange={(e) =>
-                    setNewObjective({ ...newObjective, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                  placeholder="Inona no tanjona?"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                  Fanazavana
-                </label>
-                <textarea
-                  value={newObjective.description}
-                  onChange={(e) =>
-                    setNewObjective({
-                      ...newObjective,
-                      description: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                  rows={2}
-                  placeholder="Fanazavana fanampiny..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-emerald-600 dark:text-emerald-400">
-                  Vokatra (Résultat attendu)
-                </label>
-                <textarea
-                  value={newObjective.result}
-                  onChange={(e) =>
-                    setNewObjective({ ...newObjective, result: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded border border-emerald-300 dark:border-emerald-700 dark:bg-zinc-800 text-sm"
-                  rows={2}
-                  placeholder="Inona no vokatra andrasana?"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-orange-600 dark:text-orange-400">
-                  Loza (Risques)
-                </label>
-                <textarea
-                  value={newObjective.risk}
-                  onChange={(e) =>
-                    setNewObjective({ ...newObjective, risk: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded border border-orange-300 dark:border-orange-700 dark:bg-zinc-800 text-sm"
-                  rows={2}
-                  placeholder="Inona avy no loza mety hitranga?"
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => {
-                  setShowObjectiveModal(false);
-                  setNewObjective({
-                    name: "",
-                    description: "",
-                    result: "",
-                    risk: "",
-                  });
-                }}
-                className="px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                Hiverina
-              </button>
-              <button
-                onClick={handleCreateObjective}
-                disabled={!newObjective.name.trim() || isSubmittingObjective}
-                className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50"
-              >
-                {isSubmittingObjective ? (
-                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                ) : (
-                  <PlusIcon className="size-4" />
-                )}
-                Hampiditra
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Indicator Creation Modal */}
-      {showIndicatorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-sm mx-4 border border-zinc-200 dark:border-zinc-700">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-              <h3 className="font-medium text-zinc-900 dark:text-white">
-                Hanampy Mari-pandrefesana
-              </h3>
-              <button
-                onClick={() => {
-                  setShowIndicatorModal(false);
-                  setNewIndicator({ name: "", target: 0, unit: "" });
-                  setSelectedObjectiveForIndicator(null);
-                }}
-                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <XIcon className="size-4" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                  Anarana *
-                </label>
-                <input
-                  type="text"
-                  value={newIndicator.name}
-                  onChange={(e) =>
-                    setNewIndicator({ ...newIndicator, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                  placeholder="Ex: Hazo voavoly, Olona nandray anjara..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                    Tanjona (cible)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newIndicator.target}
-                    onChange={(e) =>
-                      setNewIndicator({
-                        ...newIndicator,
-                        target: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
-                    Singa (unité)
-                  </label>
-                  <input
-                    type="text"
-                    value={newIndicator.unit}
-                    onChange={(e) =>
-                      setNewIndicator({ ...newIndicator, unit: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-sm"
-                    placeholder="Ex: hazo, olona, Ar..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => {
-                  setShowIndicatorModal(false);
-                  setNewIndicator({ name: "", target: 0, unit: "" });
-                  setSelectedObjectiveForIndicator(null);
-                }}
-                className="px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                Hiverina
-              </button>
-              <button
-                onClick={handleCreateIndicator}
-                disabled={!newIndicator.name.trim() || isSubmittingIndicator}
-                className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50"
-              >
-                {isSubmittingIndicator ? (
-                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                ) : (
-                  <PlusIcon className="size-4" />
-                )}
-                Hampiditra
-              </button>
-            </div>
-          </div>
-        </div>
+        <EditIndicatorModal
+          indicator={selectedIndicator}
+          value={indicatorDraft}
+          setValue={setIndicatorDraft}
+          onClose={() => setSelectedIndicator(null)}
+          onSubmit={() => {
+            updateIndicatorValue(selectedIndicator.id, indicatorDraft);
+            setSelectedIndicator(null);
+          }}
+        />
       )}
     </div>
   );
 }
 
-// TODO
-// - Add project description in the header - OK
-// - Add Ressources needed for the project : - OK
-// - Participation feature from user, guest,
-// - Confirmation bouton within participation ressources - OK
-// - Show participants list for each ressources - OK
-// - Show material ressources needed with progress bar - OK
-// - Send email to project (lead, creator) when someone filled his participation form - OK
+// ============================================================
+// SUB-COMPONENTS
+// ============================================================
 
-// - Money contribution feature - NOT OK
+function StatsCards({ tasks, members }) {
+  const cards = [
+    {
+      label: "Totalin'ny Asa",
+      value: tasks.length,
+      color: "text-zinc-900 dark:text-white",
+    },
+    {
+      label: "Vita",
+      value: tasks.filter((t) => t.status === "DONE").length,
+      color: "text-emerald-700 dark:text-emerald-400",
+    },
+    {
+      label: "Efa Mandeha",
+      value: tasks.filter(
+        (t) => t.status === "IN_PROGRESS" || t.status === "TODO",
+      ).length,
+      color: "text-amber-700 dark:text-amber-400",
+    },
+    {
+      label: "Mpikambana ao amin'ny Ekipa",
+      value: members?.length || 0,
+      color: "text-blue-700 dark:text-blue-400",
+    },
+  ];
 
-// - Add objectif section
-// - Add results section
-// - Add Risk section
-// - Facteur clé || élément déclencheur
+  return (
+    <div className="grid grid-cols-2 sm:flex flex-wrap gap-6">
+      {cards.map((card, idx) => (
+        <div
+          key={idx}
+          className="dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 flex justify-between sm:min-w-60 p-4 py-2.5 rounded"
+        >
+          <div>
+            <div className="text-sm text-zinc-600 dark:text-zinc-400">
+              {card.label}
+            </div>
+            <div className={`text-2xl font-bold ${card.color}`}>
+              {card.value}
+            </div>
+          </div>
+          <ZapIcon className={`size-4 ${card.color}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-// - Add Stat foeach Task
-// - Recup taskStat to update Project Stat in real time
+function TabsSection({
+  activeTab,
+  setActiveTab,
+  setSearchParams,
+  id,
+  tasks,
+  project,
+}) {
+  const tabs = [
+    { key: "tasks", label: "Asa", icon: FileStackIcon },
+    { key: "calendar", label: "Tetiandro", icon: CalendarIcon },
+    { key: "analytics", label: "Analytics", icon: BarChart3Icon },
+    { key: "settings", label: "Hikirakira", icon: SettingsIcon },
+  ];
 
-// - Add discussion section for each project
+  return (
+    <div>
+      <div className="inline-flex flex-wrap max-sm:grid grid-cols-3 gap-2 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
+        {tabs.map((tabItem) => (
+          <button
+            key={tabItem.key}
+            onClick={() => {
+              setActiveTab(tabItem.key);
+              setSearchParams({ id, tab: tabItem.key });
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm transition-all ${
+              activeTab === tabItem.key
+                ? "bg-zinc-100 dark:bg-zinc-800/80"
+                : "hover:bg-zinc-50 dark:hover:bg-zinc-700"
+            }`}
+          >
+            <tabItem.icon className="size-3.5" />
+            {tabItem.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6">
+        {activeTab === "tasks" && (
+          <div className="dark:bg-zinc-900/40 rounded max-w-6xl">
+            <ProjectTasks tasks={tasks} />
+          </div>
+        )}
+        {activeTab === "analytics" && (
+          <div className="dark:bg-zinc-900/40 rounded max-w-6xl">
+            <ProjectAnalytics tasks={tasks} project={project} />
+          </div>
+        )}
+        {activeTab === "calendar" && (
+          <div className="dark:bg-zinc-900/40 rounded max-w-6xl">
+            <ProjectCalendar tasks={tasks} />
+          </div>
+        )}
+        {activeTab === "settings" && (
+          <div className="dark:bg-zinc-900/40 rounded max-w-6xl">
+            <ProjectSettings project={project} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
