@@ -239,7 +239,10 @@ export default function ProjectSettings({ project }) {
       const url = `/api/projects/${project.id}`;
       console.log("  URL:", url);
 
-      const { data } = await api.put(url, formData, {
+      // Exclure progress car il est calculé automatiquement
+      const { progress: _unusedProgress, ...dataToSend } = formData;
+
+      const { data } = await api.put(url, dataToSend, {
         headers: { Authorization: `Bearer ${await getToken()}` },
       });
 
@@ -398,22 +401,26 @@ export default function ProjectSettings({ project }) {
             </div>
           </div>
 
-          {/* Progress */}
+          {/* Progress - Calculé automatiquement à partir des tâches */}
           <div className="space-y-2">
             <label className={labelClasses}>
-              Fizotran'ny Tetikasa: {formData.progress}%
+              Fizotran'ny Tetikasa: {project?.progress || 0}%
             </label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={formData.progress}
-              onChange={(e) =>
-                setFormData({ ...formData, progress: Number(e.target.value) })
-              }
-              className="w-full accent-blue-500 dark:accent-blue-400"
-            />
+            <div className="w-full h-3 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  (project?.progress || 0) === 100
+                    ? "bg-green-500"
+                    : (project?.progress || 0) >= 50
+                      ? "bg-blue-500"
+                      : "bg-gray-400"
+                }`}
+                style={{ width: `${project?.progress || 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 italic">
+              Voafaritra ho azy araka ny asan'ny tetikasa
+            </p>
           </div>
 
           <div className="flex items-center gap-3 p-3 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">

@@ -3,7 +3,11 @@ import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteTask, updateTask } from "../features/workspaceSlice.js";
+import {
+  deleteTask,
+  updateTask,
+  updateProjectProgress,
+} from "../features/workspaceSlice.js";
 import {
   Bug,
   CalendarIcon,
@@ -87,15 +91,40 @@ const ProjectTasks = ({ tasks }) => {
       toast.loading("Eo ampanovana...");
       const token = await getToken();
 
-      await api.put(
+      const { data } = await api.put(
         `/api/tasks/${taskId}`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
+      // Calculate progress based on status
+      const getProgressFromStatus = (status) => {
+        switch (status) {
+          case "TODO":
+            return 0;
+          case "IN_PROGRESS":
+            return 50;
+          case "DONE":
+            return 100;
+          default:
+            return 0;
+        }
+      };
+
       let updatedTask = structuredClone(tasks.find((t) => t.id === taskId));
       updatedTask.status = newStatus;
+      updatedTask.progress = getProgressFromStatus(newStatus);
       dispatch(updateTask(updatedTask));
+
+      // Update project progress
+      if (data.projectProgress !== undefined) {
+        dispatch(
+          updateProjectProgress({
+            projectId: updatedTask.projectId,
+            progress: data.projectProgress,
+          }),
+        );
+      }
 
       toast.dismissAll();
       toast.success("Fahavitan'ny asa voaova soamantsara");
@@ -120,7 +149,11 @@ const ProjectTasks = ({ tasks }) => {
 
       toast.loading("Eo ampamafana ilay asa...");
 
-      await api.delete("/api/tasks/delete", {
+      // Get projectId before deleting
+      const taskToDelete = tasks.find((t) => selectedTasks.includes(t.id));
+      const projectId = taskToDelete?.projectId;
+
+      const { data } = await api.delete("/api/tasks/delete", {
         data: { taskIds: selectedTasks },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -128,6 +161,16 @@ const ProjectTasks = ({ tasks }) => {
       dispatch(deleteTask(selectedTasks));
       setSelectedTasks([]);
       setShowDeleteConfirm(false);
+
+      // Update project progress
+      if (data.projectProgress !== undefined && projectId) {
+        dispatch(
+          updateProjectProgress({
+            projectId,
+            progress: data.projectProgress,
+          }),
+        );
+      }
 
       toast.dismissAll();
       toast.success("Asa voafafa soa aman-tsara");
@@ -240,6 +283,7 @@ const ProjectTasks = ({ tasks }) => {
                   <th className="px-4 py-3">Karazany</th>
                   <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Fandrosoana</th>
                   <th className="px-4 py-3">Ho an'i</th>
                   <th className="px-4 py-3">Daty hiafaran'ny asa</th>
                 </tr>
@@ -313,6 +357,33 @@ const ProjectTasks = ({ tasks }) => {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
+                            <div className="w-16 h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  (task.progress ?? 0) === 100
+                                    ? "bg-green-500"
+                                    : (task.progress ?? 0) >= 50
+                                      ? "bg-blue-500"
+                                      : "bg-gray-400"
+                                }`}
+                                style={{ width: `${task.progress ?? 0}%` }}
+                              />
+                            </div>
+                            <span
+                              className={`text-xs ${
+                                (task.progress ?? 0) === 100
+                                  ? "text-green-600 dark:text-green-400"
+                                  : (task.progress ?? 0) >= 50
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-gray-500 dark:text-zinc-400"
+                              }`}
+                            >
+                              {task.progress ?? 0}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
                             <img
                               src={task.assignee?.image}
                               className="size-5 rounded-full"
@@ -333,7 +404,7 @@ const ProjectTasks = ({ tasks }) => {
                 ) : (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="text-center text-zinc-500 dark:text-zinc-400 py-6"
                     >
                       Tsy misy asa hita ny amin'ireo sivana ireo
@@ -418,6 +489,38 @@ const ProjectTasks = ({ tasks }) => {
                     <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
                       <CalendarIcon className="size-4" />
                       {format(new Date(task.due_date), "dd MMMM")}
+                    </div>
+
+                    {/* Progress bar mobile */}
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          Fandrosoana
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${
+                            (task.progress ?? 0) === 100
+                              ? "text-green-600 dark:text-green-400"
+                              : (task.progress ?? 0) >= 50
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-gray-600 dark:text-zinc-400"
+                          }`}
+                        >
+                          {task.progress ?? 0}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            (task.progress ?? 0) === 100
+                              ? "bg-green-500"
+                              : (task.progress ?? 0) >= 50
+                                ? "bg-blue-500"
+                                : "bg-gray-400"
+                          }`}
+                          style={{ width: `${task.progress ?? 0}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 );

@@ -172,6 +172,28 @@ const workspaceSlice = createSlice({
           : w,
       );
     },
+    updateProjectProgress: (state, action) => {
+      const { projectId, progress } = action.payload;
+      
+      // Mettre à jour dans currentWorkspace
+      if (state.currentWorkspace) {
+        state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) =>
+          p.id === projectId ? { ...p, progress } : p
+        );
+      }
+      
+      // Mettre à jour dans workspaces
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace?.id
+          ? {
+              ...w,
+              projects: w.projects.map((p) =>
+                p.id === projectId ? { ...p, progress } : p
+              ),
+            }
+          : w,
+      );
+    },
   },
   extraReducers: (builder) => {
     //
@@ -220,5 +242,6 @@ export const {
   addTask,
   updateTask,
   deleteTask,
+  updateProjectProgress,
 } = workspaceSlice.actions;
 export default workspaceSlice.reducer;

@@ -1,9 +1,8 @@
 import prisma from "../configs/prisma.js";
-import { sendEmail } from "../configs/nodemailer.js";
+import { inngest } from "../inngest/index.js";
 import { 
   findUserByIdOrClerkId, 
-  getAdminEmails, 
-  emailTemplates 
+  getAdminEmails
 } from "./helpers/contributionHelpers.js";
 
 // ============================================================
@@ -95,38 +94,23 @@ export const createMaterialContribution = async (req, res) => {
       },
     });
 
-    // Envoyer emails de notification
+    // Envoyer emails de notification via Inngest
     const leadEmail = resource.project.owner.email;
     const projectName = resource.project.name;
     const adminEmails = getAdminEmails(resource.project.workspace.members, leadEmail);
+    const allEmails = [leadEmail, ...adminEmails];
 
-    const emailContent = emailTemplates.materialContributionPending({
-      contributorName: contributor.name,
-      projectName,
-      resourceName: resource.name,
-      quantity: numericQuantity,
-      message,
+    await inngest.send({
+      name: "app/contribution.material.pending",
+      data: {
+        emails: allEmails,
+        contributorName: contributor.name,
+        projectName,
+        resourceName: resource.name,
+        quantity: numericQuantity,
+        message,
+      },
     });
-
-    try {
-      // Envoyer au lead
-      await sendEmail(
-        leadEmail,
-        `[${projectName}] Fanolorana materialy miandry`,
-        emailContent,
-      );
-
-      // Envoyer aux admins
-      for (const adminEmail of adminEmails) {
-        await sendEmail(
-          adminEmail,
-          `[${projectName}] Fanolorana materialy miandry`,
-          emailContent,
-        );
-      }
-    } catch (emailError) {
-      console.error("Erreur envoi email:", emailError);
-    }
 
     res.status(201).json({
       message: "Contribution créée avec succès (miandry fankatoavana)",
@@ -245,21 +229,17 @@ export const approveContribution = async (req, res) => {
       },
     });
 
-    // Envoyer un email de confirmation au contributeur
-    try {
-      await sendEmail(
-        contribution.contributor.email,
-        `Nekene ilay fanampianao !`,
-        emailTemplates.materialContributionApproved({
-          contributorName: contribution.contributor.name,
-          projectName: contribution.project.name,
-          resourceName: contribution.resource.name,
-          quantity: contribution.quantity,
-        }),
-      );
-    } catch (emailError) {
-      console.error("Erreur envoi email confirmation:", emailError);
-    }
+    // Envoyer un email de confirmation au contributeur via Inngest
+    await inngest.send({
+      name: "app/contribution.material.approved",
+      data: {
+        contributorEmail: contribution.contributor.email,
+        contributorName: contribution.contributor.name,
+        projectName: contribution.project.name,
+        resourceName: contribution.resource.name,
+        quantity: contribution.quantity,
+      },
+    });
 
     res.json({
       message: "Fanampiana nekena ara-dalàna",
@@ -330,22 +310,18 @@ export const rejectContribution = async (req, res) => {
       },
     });
 
-    // Envoyer un email au contributeur
-    try {
-      await sendEmail(
-        contribution.contributor.email,
-        `Contribution non retenue`,
-        emailTemplates.materialContributionRejected({
-          contributorName: contribution.contributor.name,
-          projectName: contribution.project.name,
-          resourceName: contribution.resource.name,
-          quantity: contribution.quantity,
-          reason,
-        }),
-      );
-    } catch (emailError) {
-      console.error("Erreur envoi email rejet:", emailError);
-    }
+    // Envoyer un email au contributeur via Inngest
+    await inngest.send({
+      name: "app/contribution.material.rejected",
+      data: {
+        contributorEmail: contribution.contributor.email,
+        contributorName: contribution.contributor.name,
+        projectName: contribution.project.name,
+        resourceName: contribution.resource.name,
+        quantity: contribution.quantity,
+        reason,
+      },
+    });
 
     res.json({
       message: "Contribution rejetée",

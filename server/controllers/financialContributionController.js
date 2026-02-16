@@ -1,10 +1,9 @@
 import prisma from "../configs/prisma.js";
-import { sendEmail } from "../configs/nodemailer.js";
+import { inngest } from "../inngest/index.js";
 import { 
   findUserByIdOrClerkId, 
   checkProjectPermissions,
-  getAdminEmails, 
-  emailTemplates 
+  getAdminEmails
 } from "./helpers/contributionHelpers.js";
 
 // ============================================================
@@ -82,35 +81,22 @@ export const createFinancialContribution = async (req, res) => {
       },
     });
 
-    // Envoyer emails de notification
+    // Envoyer emails de notification via Inngest
     const leadEmail = project.owner.email;
     const projectName = project.name;
     const adminEmails = getAdminEmails(project.workspace.members, leadEmail);
+    const allEmails = [leadEmail, ...adminEmails];
 
-    const emailContent = emailTemplates.financialContributionPending({
-      contributorName: contributor.name,
-      projectName,
-      amount: numericAmount,
-      reference,
+    await inngest.send({
+      name: "app/contribution.financial.pending",
+      data: {
+        emails: allEmails,
+        contributorName: contributor.name,
+        projectName,
+        amount: numericAmount,
+        reference,
+      },
     });
-
-    try {
-      await sendEmail(
-        leadEmail,
-        `[${projectName}] Fanohanana ara-bola miandry`,
-        emailContent,
-      );
-
-      for (const adminEmail of adminEmails) {
-        await sendEmail(
-          adminEmail,
-          `[${projectName}] Fanohanana ara-bola miandry`,
-          emailContent,
-        );
-      }
-    } catch (emailError) {
-      console.error("Erreur envoi email:", emailError);
-    }
 
     return res.status(201).json({
       message: "Fanampiana nalefa - miandry famafazana",
@@ -220,21 +206,17 @@ export const approveFinancialContribution = async (req, res) => {
       },
     });
 
-    // Envoyer email de confirmation au donateur
-    try {
-      await sendEmail(
-        contribution.contributor.email,
-        `✓ Voaray ny fanampianao ara-bola`,
-        emailTemplates.financialContributionApproved({
-          contributorName: contribution.contributor.name,
-          projectName: contribution.project.name,
-          amount: contribution.amount,
-          reference: contribution.reference,
-        }),
-      );
-    } catch (emailError) {
-      console.error("Erreur envoi email confirmation:", emailError);
-    }
+    // Envoyer email de confirmation au donateur via Inngest
+    await inngest.send({
+      name: "app/contribution.financial.approved",
+      data: {
+        contributorEmail: contribution.contributor.email,
+        contributorName: contribution.contributor.name,
+        projectName: contribution.project.name,
+        amount: contribution.amount,
+        reference: contribution.reference,
+      },
+    });
 
     res.json({
       message: "Fanampiana voamarina",

@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { useAuth } from "@clerk/clerk-react";
 import api from "../configs/api.js";
 import toast from "react-hot-toast";
-import { addTask } from "../features/workspaceSlice.js";
+import { addTask, updateProjectProgress } from "../features/workspaceSlice.js";
 
 export default function CreateTaskDialog({
   showCreateTask,
@@ -36,6 +36,11 @@ export default function CreateTaskDialog({
     priority: "MEDIUM",
     assigneeId: "",
     due_date: "",
+    objective: "",
+    result: "",
+    risk: "",
+    keyFactor: "",
+    keyFactorAcquired: false,
   });
 
   const handleSubmit = async (e) => {
@@ -61,9 +66,22 @@ export default function CreateTaskDialog({
         priority: "MEDIUM",
         assigneeId: "",
         due_date: "",
+        objective: "",
+        result: "",
+        risk: "",
+        keyFactor: "",
+        keyFactorAcquired: false,
       });
       toast.success(data.message);
       dispatch(addTask(data.task));
+      
+      // Update project progress
+      if (data.projectProgress !== undefined) {
+        dispatch(updateProjectProgress({
+          projectId,
+          progress: data.projectProgress,
+        }));
+      }
     } catch (error) {
       toast.error(error?.response?.data?.message || error.message);
     } finally {
@@ -206,6 +224,77 @@ export default function CreateTaskDialog({
             )}
           </div>
 
+          {/* Objective - Tanjona */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Tanjona (Objectif)</label>
+            <textarea
+              value={formData.objective}
+              onChange={(e) =>
+                setFormData({ ...formData, objective: e.target.value })
+              }
+              placeholder="Inona no tanjona kendren'ity asa ity?"
+              className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1 h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Result - Vokatra */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Vokatra (Résultat attendu)
+            </label>
+            <textarea
+              value={formData.result}
+              onChange={(e) =>
+                setFormData({ ...formData, result: e.target.value })
+              }
+              placeholder="Inona no vokatra andrasana?"
+              className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1 h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Risk - Loza */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Loza (Risque)</label>
+            <textarea
+              value={formData.risk}
+              onChange={(e) =>
+                setFormData({ ...formData, risk: e.target.value })
+              }
+              placeholder="Inona avy ireo loza mety hiseho?"
+              className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1 h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Key Factor - Singa fototra */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Singa fototra (Facteur clé / Élément déclencheur)
+            </label>
+            <textarea
+              value={formData.keyFactor}
+              onChange={(e) =>
+                setFormData({ ...formData, keyFactor: e.target.value })
+              }
+              placeholder="Inona no singa fototra na antony manosika?"
+              className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1 h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {formData.keyFactor && (
+              <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.keyFactorAcquired}
+                  onChange={(e) =>
+                    setFormData({ ...formData, keyFactorAcquired: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Efa azo ny singa fototra (Déjà acquis)
+                </span>
+              </label>
+            )}
+          </div>
+
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -213,7 +302,7 @@ export default function CreateTaskDialog({
               onClick={() => setShowCreateTask(false)}
               className="rounded border border-zinc-300 dark:border-zinc-700 px-5 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
             >
-              Cancel
+              Hiverina
             </button>
             <button
               type="submit"

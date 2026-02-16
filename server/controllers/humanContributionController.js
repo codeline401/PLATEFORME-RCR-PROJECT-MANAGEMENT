@@ -1,8 +1,7 @@
 import prisma from "../configs/prisma.js";
-import { sendEmail } from "../configs/nodemailer.js";
+import { inngest } from "../inngest/index.js";
 import { 
-  findUserByIdOrClerkId, 
-  emailTemplates 
+  findUserByIdOrClerkId
 } from "./helpers/contributionHelpers.js";
 
 // ============================================================
@@ -90,39 +89,31 @@ export const participateHumanResource = async (req, res) => {
     const leadName = resource.project.owner.name;
     const isLead = resource.project.owner.id === participant.id;
 
-    // Email au participant
-    try {
-      await sendEmail(
-        participant.email,
-        `Firotsahana voamarina - ${projectName}`,
-        emailTemplates.humanParticipationConfirmed({
-          participantName: participant.name,
-          projectName,
-          resourceName: resource.name,
-        }),
-      );
-    } catch (emailError) {
-      console.error("Erreur envoi email participant:", emailError);
-    }
+    // Email au participant via Inngest
+    await inngest.send({
+      name: "app/contribution.human.confirmed",
+      data: {
+        participantEmail: participant.email,
+        participantName: participant.name,
+        projectName,
+        resourceName: resource.name,
+      },
+    });
 
     // Email au lead (si ce n'est pas lui qui participe)
     if (!isLead) {
-      try {
-        await sendEmail(
+      await inngest.send({
+        name: "app/contribution.human.notify-lead",
+        data: {
           leadEmail,
-          `[${projectName}] Mpikambana vaovao nirotsaka`,
-          emailTemplates.humanParticipationNotifyLead({
-            leadName,
-            participantName: participant.name,
-            participantEmail: participant.email,
-            projectName,
-            resourceName: resource.name,
-            message,
-          }),
-        );
-      } catch (emailError) {
-        console.error("Erreur envoi email lead:", emailError);
-      }
+          leadName,
+          participantName: participant.name,
+          participantEmail: participant.email,
+          projectName,
+          resourceName: resource.name,
+          message,
+        },
+      });
     }
 
     res.status(201).json({

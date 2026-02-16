@@ -619,7 +619,7 @@ export const addMemberToProject = async (req, res) => {
     }
 
     //Check if member to add exists
-    const existingMember = await prisma.members.find(
+    const existingMember = project.members.find(
       (member) => member.user.email === memberEmail,
     );
 

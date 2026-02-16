@@ -173,6 +173,15 @@ model Task {
     priority    Priority   @default(MEDIUM)
     assigneeId  String
     due_date    DateTime?
+    progress    Int        @default(0) // 0% TODO, 50% IN_PROGRESS, 100% DONE
+    
+    // Nouvelles sections
+    objective   String?    // Tanjona - Objectif de la tâche
+    result      String?    // Vokatra - Résultat attendu
+    risk        String?    // Loza - Risques potentiels
+    keyFactor   String?    // Singa fototra / Antony manosika - Facteur clé ou élément déclencheur
+    keyFactorAcquired Boolean @default(false) // Efa azo ve ny singa fototra?
+    
     createdAt   DateTime   @default(now())
     updatedAt   DateTime   @updatedAt
 

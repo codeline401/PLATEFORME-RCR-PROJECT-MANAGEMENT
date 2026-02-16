@@ -1,6 +1,7 @@
 import { Inngest } from "inngest";
 import prisma from "../configs/prisma.js";
 import { sendEmail } from "../configs/nodemailer.js";
+import { emailTemplates } from "../controllers/helpers/contributionHelpers.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "RCR PROJECT MANAGEMENT" });
@@ -359,6 +360,265 @@ const sendTaskAssignmentEmail = inngest.createFunction(
     }
   },
 );
+
+// =============================================================================
+// EMAIL FUNCTIONS - CONTRIBUTIONS
+// =============================================================================
+
+// Financial Contribution - Pending (to Lead & Admins)
+const sendFinancialContributionPendingEmail = inngest.createFunction(
+  { id: "send-financial-contribution-pending-email" },
+  { event: "app/contribution.financial.pending" },
+  async ({ event }) => {
+    const { emails, contributorName, projectName, amount, reference } = event.data;
+    
+    const emailContent = emailTemplates.financialContributionPending({
+      contributorName,
+      projectName,
+      amount,
+      reference,
+    });
+
+    for (const email of emails) {
+      try {
+        await sendEmail(
+          email,
+          `[${projectName}] Fanohanana ara-bola miandry`,
+          emailContent,
+        );
+        console.log(`✅ Email sent to ${email} for financial contribution pending`);
+      } catch (error) {
+        console.error(`❌ Failed to send email to ${email}:`, error.message);
+      }
+    }
+  },
+);
+
+// Financial Contribution - Approved (to Contributor)
+const sendFinancialContributionApprovedEmail = inngest.createFunction(
+  { id: "send-financial-contribution-approved-email" },
+  { event: "app/contribution.financial.approved" },
+  async ({ event }) => {
+    const { contributorEmail, contributorName, projectName, amount, reference } = event.data;
+    
+    try {
+      await sendEmail(
+        contributorEmail,
+        `✓ Voaray ny fanampianao ara-bola`,
+        emailTemplates.financialContributionApproved({
+          contributorName,
+          projectName,
+          amount,
+          reference,
+        }),
+      );
+      console.log(`✅ Email sent to ${contributorEmail} for financial contribution approved`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${contributorEmail}:`, error.message);
+    }
+  },
+);
+
+// Material Contribution - Pending (to Lead & Admins)
+const sendMaterialContributionPendingEmail = inngest.createFunction(
+  { id: "send-material-contribution-pending-email" },
+  { event: "app/contribution.material.pending" },
+  async ({ event }) => {
+    const { emails, contributorName, projectName, resourceName, quantity, message } = event.data;
+    
+    const emailContent = emailTemplates.materialContributionPending({
+      contributorName,
+      projectName,
+      resourceName,
+      quantity,
+      message,
+    });
+
+    for (const email of emails) {
+      try {
+        await sendEmail(
+          email,
+          `[${projectName}] Fanolorana materialy miandry`,
+          emailContent,
+        );
+        console.log(`✅ Email sent to ${email} for material contribution pending`);
+      } catch (error) {
+        console.error(`❌ Failed to send email to ${email}:`, error.message);
+      }
+    }
+  },
+);
+
+// Material Contribution - Approved (to Contributor)
+const sendMaterialContributionApprovedEmail = inngest.createFunction(
+  { id: "send-material-contribution-approved-email" },
+  { event: "app/contribution.material.approved" },
+  async ({ event }) => {
+    const { contributorEmail, contributorName, projectName, resourceName, quantity } = event.data;
+    
+    try {
+      await sendEmail(
+        contributorEmail,
+        `Nekene ilay fanampianao !`,
+        emailTemplates.materialContributionApproved({
+          contributorName,
+          projectName,
+          resourceName,
+          quantity,
+        }),
+      );
+      console.log(`✅ Email sent to ${contributorEmail} for material contribution approved`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${contributorEmail}:`, error.message);
+    }
+  },
+);
+
+// Material Contribution - Rejected (to Contributor)
+const sendMaterialContributionRejectedEmail = inngest.createFunction(
+  { id: "send-material-contribution-rejected-email" },
+  { event: "app/contribution.material.rejected" },
+  async ({ event }) => {
+    const { contributorEmail, contributorName, projectName, resourceName, quantity, reason } = event.data;
+    
+    try {
+      await sendEmail(
+        contributorEmail,
+        `Contribution non retenue`,
+        emailTemplates.materialContributionRejected({
+          contributorName,
+          projectName,
+          resourceName,
+          quantity,
+          reason,
+        }),
+      );
+      console.log(`✅ Email sent to ${contributorEmail} for material contribution rejected`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${contributorEmail}:`, error.message);
+    }
+  },
+);
+
+// Human Participation - Confirmed (to Participant)
+const sendHumanParticipationConfirmedEmail = inngest.createFunction(
+  { id: "send-human-participation-confirmed-email" },
+  { event: "app/contribution.human.confirmed" },
+  async ({ event }) => {
+    const { participantEmail, participantName, projectName, resourceName } = event.data;
+    
+    try {
+      await sendEmail(
+        participantEmail,
+        `Firotsahana voamarina - ${projectName}`,
+        emailTemplates.humanParticipationConfirmed({
+          participantName,
+          projectName,
+          resourceName,
+        }),
+      );
+      console.log(`✅ Email sent to ${participantEmail} for human participation confirmed`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${participantEmail}:`, error.message);
+    }
+  },
+);
+
+// Human Participation - Notify Lead
+const sendHumanParticipationNotifyLeadEmail = inngest.createFunction(
+  { id: "send-human-participation-notify-lead-email" },
+  { event: "app/contribution.human.notify-lead" },
+  async ({ event }) => {
+    const { leadEmail, leadName, participantName, participantEmail, projectName, resourceName, message } = event.data;
+    
+    try {
+      await sendEmail(
+        leadEmail,
+        `[${projectName}] Mpikambana vaovao nirotsaka`,
+        emailTemplates.humanParticipationNotifyLead({
+          leadName,
+          participantName,
+          participantEmail,
+          projectName,
+          resourceName,
+          message,
+        }),
+      );
+      console.log(`✅ Email sent to ${leadEmail} for human participation notification`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${leadEmail}:`, error.message);
+    }
+  },
+);
+
+// Guest Form - Contact
+const sendGuestFormEmail = inngest.createFunction(
+  { id: "send-guest-form-email" },
+  { event: "app/contact.guest-form" },
+  async ({ event }) => {
+    const { recipientEmail, anarana, faritra, distrika, whatsapp, antony, mpikambana } = event.data;
+    
+    const emailBody = `
+      <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3b82f6; padding-bottom: 20px;">
+            <h1 style="color: #1e293b; margin: 0;">🎯 RCR / T.OLO.N.A</h1>
+            <p style="color: #64748b; margin: 5px 0;">Formulaire d'inscription Guest</p>
+          </div>
+          <div style="margin: 20px 0;">
+            <h2 style="color: #1e293b; font-size: 20px; margin-top: 0;">Informations du Candidat</h2>
+            <div style="margin: 15px 0; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+              <strong style="color: #1e293b;">Anarana sy Fanampiny (Nom et Prénom):</strong><br>
+              <span style="color: #475569;">${anarana}</span>
+            </div>
+            <div style="margin: 15px 0; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+              <strong style="color: #1e293b;">Faritra Hipetrahana (Région):</strong><br>
+              <span style="color: #475569;">${faritra}</span>
+            </div>
+            <div style="margin: 15px 0; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+              <strong style="color: #1e293b;">Distrika hipetrahana (District):</strong><br>
+              <span style="color: #475569;">${distrika}</span>
+            </div>
+            <div style="margin: 15px 0; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+              <strong style="color: #1e293b;">📱 Numéro WhatsApp:</strong><br>
+              <span style="color: #475569;">${whatsapp}</span>
+            </div>
+            <div style="margin: 15px 0; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+              <strong style="color: #1e293b;">Antony Hitsidihana ny Pejy (Raison de visiter la page):</strong><br>
+              <span style="color: #475569;">${antony.replace(/\n/g, "<br>")}</span>
+            </div>
+            <div style="margin: 15px 0; padding: 12px; background-color: ${mpikambana === "OUI" ? "#dcfce7" : "#fee2e2"}; border-left: 4px solid ${mpikambana === "OUI" ? "#22c55e" : "#ef4444"}; border-radius: 4px;">
+              <strong style="color: #1e293b;">Efa Mpikambana RCR ve ? (Déjà membre RCR ?):</strong><br>
+              <span style="color: #475569; font-weight: bold; font-size: 16px;">${mpikambana}</span>
+            </div>
+          </div>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <p style="color: #64748b; font-size: 12px; margin: 5px 0;">
+              📨 Formulaire envoyé automatiquement par la plateforme RCR / T.OLO.N.A
+            </p>
+            <p style="color: #64748b; font-size: 12px; margin: 5px 0;">
+              Date: ${new Date().toLocaleString("fr-FR")}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await sendEmail(
+        recipientEmail,
+        `🎉 Mpandray Anjara Vaovao Nandefa Fangatahana hiditra - ${anarana} | RCR / T.OLO.N.A`,
+        emailBody,
+      );
+      console.log(`✅ Guest form email sent to ${recipientEmail}`);
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      console.error(`❌ Failed to send guest form email to ${recipientEmail}:`, error.message);
+      throw error;
+    }
+  },
+);
+
 // Create an empty array where we'll export future Inngest functions
 export const functions = [
   syncUserCreation,
@@ -369,4 +629,13 @@ export const functions = [
   syncWorkspaceDeletion,
   syncWorkSpaceMemberCreation,
   sendTaskAssignmentEmail,
+  // Email functions - Contributions
+  sendFinancialContributionPendingEmail,
+  sendFinancialContributionApprovedEmail,
+  sendMaterialContributionPendingEmail,
+  sendMaterialContributionApprovedEmail,
+  sendMaterialContributionRejectedEmail,
+  sendHumanParticipationConfirmedEmail,
+  sendHumanParticipationNotifyLeadEmail,
+  sendGuestFormEmail,
 ];

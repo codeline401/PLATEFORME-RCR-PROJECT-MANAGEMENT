@@ -1602,12 +1602,12 @@ export default function ProjectDetail() {
 
 // - Money contribution feature - NOT OK
 
-// - Add objectif section
-// - Add results section
-// - Add Risk section
-// - Facteur clé || élément déclencheur
+// - Add objectif section - OK
+// - Add results section - OK
+// - Add Risk section - OK
+// - Facteur clé || élément déclencheur - OK
 
-// - Add Stat foeach Task
-// - Recup taskStat to update Project Stat in real time
+// - Add Stat foeach Task - OK
+// - Recup taskStat to update Project Stat in real time - OK
 
-// - Add discussion section for each project
+// - Add discussion section for each project -
