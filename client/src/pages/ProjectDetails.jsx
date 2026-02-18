@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   FileStackIcon,
   ZapIcon,
+  FileDown,
 } from "lucide-react";
 
 // Components
@@ -38,6 +39,7 @@ import {
   useIndicators,
   useContributions,
 } from "../hooks/useProjectDetails";
+import { generateProjectPdf } from "../utils/generateProjectPdf";
 
 // Status colors constant
 const statusColors = {
@@ -246,6 +248,15 @@ export default function ProjectDetail() {
             </span>
           </div>
         </div>
+        {project?.progress === 100 && (
+          <button
+            onClick={() => generateProjectPdf(project)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            <FileDown size={18} />
+            Exporter PDF
+          </button>
+        )}
         <button
           onClick={() => setShowCreateTask(true)}
           className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white"
