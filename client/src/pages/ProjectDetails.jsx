@@ -63,6 +63,7 @@ export default function ProjectDetail() {
     tasks,
     financialContributions,
     setFinancialContributions,
+    materialContributions,
     currentUserId,
     isProjectLead,
     canEditIndicator,
@@ -250,7 +251,7 @@ export default function ProjectDetail() {
         </div>
         {project?.progress === 100 && (
           <button
-            onClick={() => generateProjectPdf(project)}
+            onClick={() => generateProjectPdf(project, { financialContributions, materialContributions })}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <FileDown size={18} />

@@ -26,6 +26,7 @@ export const useProjectDetails = (projectId) => {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [financialContributions, setFinancialContributions] = useState([]);
+  const [materialContributions, setMaterialContributions] = useState([]);
 
   // Current user info
   const currentMember = currentWorkspace?.members?.find(
@@ -69,6 +70,24 @@ export const useProjectDetails = (projectId) => {
     loadFinancialContributions();
   }, [getToken, projectId]);
 
+  // Load material contributions
+  useEffect(() => {
+    const loadMaterialContributions = async () => {
+      if (!projectId) return;
+      try {
+        const token = await getToken();
+        const { data } = await api.get(
+          `/api/contributions/project/${projectId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setMaterialContributions(data || []);
+      } catch (error) {
+        console.error("Erreur contributions matérielles:", error);
+      }
+    };
+    loadMaterialContributions();
+  }, [getToken, projectId]);
+
   // Financial calculations
   const totalFinancialNeeded = project?.financialResources?.reduce(
     (acc, r) => acc + (r.amount || 0),
@@ -99,6 +118,8 @@ export const useProjectDetails = (projectId) => {
     tasks,
     financialContributions,
     setFinancialContributions,
+    materialContributions,
+    setMaterialContributions,
     currentUserId,
     isProjectLead,
     isAdmin,
